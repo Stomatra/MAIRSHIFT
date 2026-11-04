@@ -1,0 +1,6 @@
+{
+	"name": "MajdataPlay.Threading",
+	"references": [
+		"UniTask"
+	]
+}
