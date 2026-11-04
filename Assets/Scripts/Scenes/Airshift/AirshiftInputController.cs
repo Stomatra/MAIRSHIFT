@@ -18,7 +18,7 @@ namespace MajdataPlay.Scenes.Airshift
         private readonly AirshiftTapGestureDetector _tapGestureDetector;
         private readonly AirshiftDiscContactTracker _discContactTracker;
         private readonly AirshiftSensorTracker _sensorTracker;
-        private readonly HashSet<AirshiftSensorArea> _pendingTouches = new();
+        private readonly AirshiftTouchInputBridge _pendingTouches = new();
         private readonly List<AirshiftSensorTransition> _slideTransitions = new();
         private readonly List<AirshiftWifiMidpointTransition>
             _wifiTransitions = new();
@@ -122,7 +122,7 @@ namespace MajdataPlay.Scenes.Airshift
             SlideFrameLeftStart = _sensorTracker.LeftArea;
             SlideFrameRightStart = _sensorTracker.RightArea;
 
-            _pendingTouches.Clear();
+            _pendingTouches.BeginFrame();
 
             bool discontinuity = _mouseSource.Poll(
                 _cursorTracker,
@@ -197,7 +197,7 @@ namespace MajdataPlay.Scenes.Airshift
             SlideFrameLeftStart = _sensorTracker.LeftArea;
             SlideFrameRightStart = _sensorTracker.RightArea;
 
-            _pendingTouches.Clear();
+            _pendingTouches.BeginFrame();
         }
 
         internal IReadOnlyList<AirshiftWifiMidpointTransition>
@@ -233,16 +233,19 @@ namespace MajdataPlay.Scenes.Airshift
             return _discContactTracker.IsAreaContacted(startPos);
         }
 
-        internal bool TryConsumeTouch(int sensorArea)
+        internal bool TryConsumeTouch(
+            int sensorArea,
+            AirshiftRequiredHand requiredHand = AirshiftRequiredHand.Any)
         {
             if (_disposed || !_hasFocus)
             {
                 return false;
             }
 
-            return _pendingTouches.Remove(
-                (AirshiftSensorArea)sensorArea
-            );
+            return _pendingTouches.TryConsume(
+                (AirshiftSensorArea)sensorArea,
+                requiredHand,
+                out _);
         }
 
         internal bool IsTouchContacted(int sensorArea)
@@ -382,8 +385,8 @@ namespace MajdataPlay.Scenes.Airshift
                 return;
             }
 
-            // The same area produces at most one TOUCH per frame.
-            _pendingTouches.Add(transition.Area);
+            // Keep independent left/right entry actions for handed TOUCH notes.
+            _pendingTouches.Enqueue(transition);
 
 #if UNITY_EDITOR
             Debug.Log(
