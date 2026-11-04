@@ -1,0 +1,2 @@
+This directory is retained to preserve its existing Unity folder GUID.
+No source files were present in this directory in the publication snapshot.

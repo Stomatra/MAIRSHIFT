@@ -1,7 +1,6 @@
-# MajdataPlay
+# MAIRSHIFT
 
 ![license GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)
-![GitHub Release](https://img.shields.io/github/v/release/LingFeng-bbben/MajdataPlay)
 ![Discord](https://badgen.net/discord/online-members/AcWgZN7j6K)
 ![Unity](https://img.shields.io/badge/Unity-6000.3.17f1-7e7e7e)
 
@@ -9,6 +8,11 @@
 > This software has no affair with the `big S four letter` company, please support the arcade whenever you can.
 
 A Simai Player.
+
+MAIRSHIFT is a derivative of MajdataPlay. Upstream credits are retained below.
+This repository is a public source checkout with selected licensed dependencies.
+Runtime media, proprietary dependencies and some fonts are intentionally withheld;
+see [publication status and setup limitations](PUBLICATION.md) before importing or building.
 
 This project is based on [@LeZi9916](https://github.com/LeZi9916) 's DJAuto branch for [MajdataView](https://github.com/LingFeng-bbben/MajdataView).
 
@@ -25,19 +29,10 @@ Simai is a maimai chart discription language developed by [Celeca](https://twitt
 > [!Note]
 > On macOS, only the DAO device is tested and fully supported. Other devices are untested.
 
-## Install
+## Source publication
 
-# !DOWNLOAD NOW
-
-## !DOWNLOAD NOW
-
-### !DOWNLOAD NOW
-
-#### !DOWNLOAD NOW
-
-##### !DOWNLOAD NOW
-
-[<img src="Doc/googleplay.svg" height="60">](https://play.google.com/store/apps/details?id=net.majdata.majdataplay) [<img src="Doc/appstore.svg" height="60">](https://testflight.apple.com/join/PwxCNk5n)
+Clone this repository with Git LFS and all submodules. This publication does not
+include a verified standalone player or the local development copy's bundled media.
 
 ## Getting Started
 
@@ -63,8 +58,10 @@ Simai is a maimai chart discription language developed by [Celeca](https://twitt
 Clone the project using Git:
 
 ```bash
-git clone https://github.com/LingFeng-bbben/MajdataPlay.git MajdataPlay
-cd MajdataPlay
+git lfs install
+git clone --recurse-submodules https://github.com/Stomatra/MAIRSHIFT.git MAIRSHIFT
+cd MAIRSHIFT
+git lfs pull
 ```
 
 ### Initialize Submodules
@@ -146,7 +143,7 @@ extensions and rebuilding the DLL without regenerating Java bindings.
 
 [Docs](https://docs.majdata.net) | [WIKI](https://github.com/LingFeng-bbben/MajdataPlay/wiki)
 
-## Releases
+## Upstream releases
 
 [Stable](https://github.com/TeamMajdata/MajdataPlay_Build) | [Nightly](https://github.com/LingFeng-bbben/MajdataPlay/releases/tag/nightly)
 
@@ -154,7 +151,7 @@ extensions and rebuilding the DLL without regenerating Java bindings.
 
 Feel free if you wanna participate in coding or testing!!
 
-Please report problems to [issues page](https://github.com/LingFeng-bbben/MajdataPlay/issues).
+Please report MAIRSHIFT problems to the [issues page](https://github.com/Stomatra/MAIRSHIFT/issues).
 
 The log files should be in `Logs/`
 
