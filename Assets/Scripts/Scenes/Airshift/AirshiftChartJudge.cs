@@ -209,7 +209,9 @@ namespace MajdataPlay.Scenes.Airshift
             var bestOffset = double.PositiveInfinity;
             foreach (var note in _chart.Notes)
             {
-                if (note.State != AirshiftNoteState.Pending || note.Area != area)
+                if (note.State != AirshiftNoteState.Pending || note.Area != area ||
+                    (note.RequiredHand == AirshiftRequiredHand.Left && hand != HandId.Left) ||
+                    (note.RequiredHand == AirshiftRequiredHand.Right && hand != HandId.Right))
                 {
                     continue;
                 }
