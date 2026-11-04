@@ -1,0 +1,7 @@
+MAIRSHIFT public source checkout
+
+Bundled charts, music, backgrounds, sound effects, voices and skins from the
+local development copy are intentionally withheld pending asset-specific permission.
+This placeholder preserves the existing directory and folder metadata.
+Supply your own authorized runtime data locally. Do not commit personal settings,
+databases, credentials, copyrighted charts or media without permission.
