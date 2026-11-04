@@ -21,6 +21,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         public float RotateSpeed { get; set; } = 0f;
         public bool IsDouble { get; set; } = false;
         public bool IsStar { get; set; } = false;
+        internal MajdataPlay.Scenes.Airshift.AirshiftRequiredHand RequiredHand { get; private set; } = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any;
         public float Distance { get; set; } = -100;
 
         [SerializeField]
@@ -93,6 +94,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             IsMine = poolingInfo.IsMine;
             QueueInfo = poolingInfo.QueueInfo;
             IsStar = poolingInfo.IsStar;
+            RequiredHand = poolingInfo.RequiredHand;
             IsDouble = poolingInfo.IsDouble;
             RotateSpeed = poolingInfo.RotateSpeed;
             IsJudged = false;
@@ -325,7 +327,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             {
                 // AIRSHIFT: only recognized motion gestures may hit TAP notes.
                 if (NoteController is not GamePlayManager gameManager ||
-                    !gameManager.TryConsumeAirshiftTap(StartPos))
+                    !gameManager.TryConsumeAirshiftTap(StartPos, RequiredHand))
                 {
                     return;
                 }
