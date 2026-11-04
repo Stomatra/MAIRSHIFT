@@ -6,19 +6,18 @@ using System.Text.RegularExpressions;
 namespace MajdataPlay.Scenes.Airshift
 {
     /// <summary>
-    /// AIRSHIFT-only prefix layer over the unmodified MajSimai grammar.
-    /// Phase one supports L/R on standalone star TAPs (1$, 1$$) and TOUCH (A1, B3, C).
-    /// It removes the prefix before passing text to MajSimai, then maps the
-    /// resulting stable note tokens back to independently judged AIRSHIFT notes.
+    /// AIRSHIFT-only L/R prefix layer. All prefixes are removed before invoking
+    /// unmodified MajSimai; the sidecar markers are attached to AIRSHIFT notes.
     /// </summary>
     internal static class AirshiftHandedSimaiSyntax
     {
-        // The boundary is intentionally restrictive; unsupported hand-marked
-        // slides, holds, or mixed modifiers fail instead of silently losing color.
+        // Include unprefixed simple TAPs and TOUCHes in the source ordinals:
+        // 1 before L1$ must not cause L1$ to target that earlier 1.
         private static readonly Regex NoteToken = new(
-            @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?:[1-8]\$\$?|(?:[ABDE][1-8]|C)f?))(?=[,/\x60\s]|$)",
+            @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?<star>[1-8]\$\$?)|(?<tap>[1-8][bxm]?)|(?<touch>(?:[ABDE][1-8]|C)[fbxm]?))(?=[,/\x60\s]|$)",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+        // Catch unsupported prefixes such as L1h, R1-5, LA1h, etc.
         private static readonly Regex PossibleHandPrefix = new(
             @"(?<![A-Za-z0-9_])[LR](?=[1-8]|[ABDE][1-8]|C)",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -26,13 +25,15 @@ namespace MajdataPlay.Scenes.Airshift
         internal readonly struct Marker
         {
             internal string Token { get; }
+            internal string Key { get; }
             internal int Occurrence { get; }
             internal AirshiftRequiredHand RequiredHand { get; }
             internal bool IsStar { get; }
 
-            internal Marker(string token, int occurrence, AirshiftRequiredHand requiredHand, bool isStar)
+            internal Marker(string token, string key, int occurrence, AirshiftRequiredHand requiredHand, bool isStar)
             {
                 Token = token;
+                Key = key;
                 Occurrence = occurrence;
                 RequiredHand = requiredHand;
                 IsStar = isStar;
@@ -43,11 +44,16 @@ namespace MajdataPlay.Scenes.Airshift
         {
             internal string SimaiText { get; }
             internal IReadOnlyList<Marker> Markers { get; }
+            internal IReadOnlyDictionary<string, int> SourceCounts { get; }
 
-            internal Preprocessed(string simaiText, IReadOnlyList<Marker> markers)
+            internal Preprocessed(
+                string simaiText,
+                IReadOnlyList<Marker> markers,
+                IReadOnlyDictionary<string, int> sourceCounts)
             {
                 SimaiText = simaiText;
                 Markers = markers;
+                SourceCounts = sourceCounts;
             }
         }
 
@@ -60,46 +66,62 @@ namespace MajdataPlay.Scenes.Airshift
 
             var matches = NoteToken.Matches(fumen);
             var validPrefixes = new HashSet<int>();
-            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var sourceCounts = new Dictionary<string, int>(StringComparer.Ordinal);
             var sameBeatCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (Match candidate in matches)
-            {
-                // All source candidates are counted, even ones without L/R.
-                // Same-raw-token doubles in the same beat need event-ID based
-                // matching; reject them in v1 rather than swapping hands.
-                var beat = fumen.LastIndexOf(',', candidate.Index);
-                var beatKey = beat + ":" + candidate.Groups["token"].Value;
-                sameBeatCounts.TryGetValue(beatKey, out var count);
-                sameBeatCounts[beatKey] = count + 1;
-            }
-
             var markers = new List<Marker>();
             var output = new StringBuilder(fumen.Length);
             var previous = 0;
 
+            // Count every simple source TAP/TOUCH, including unprefixed notes.
             foreach (Match match in matches)
             {
-                var token = match.Groups["token"].Value;
-                var prefix = match.Groups["hand"].Value;
-                counts.TryGetValue(token, out var index);
-                counts[token] = index + 1;
+                var key = GetSourceKey(match);
+                sourceCounts.TryGetValue(key, out var index);
+                sourceCounts[key] = index + 1;
 
+                var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
+                sameBeatCounts.TryGetValue(beatKey, out var beatCount);
+                sameBeatCounts[beatKey] = beatCount + 1;
+            }
+
+            var ordinals = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (Match match in matches)
+            {
+                var key = GetSourceKey(match);
+                ordinals.TryGetValue(key, out var index);
+                ordinals[key] = index + 1;
+
+                var prefix = match.Groups["hand"].Value;
                 if (prefix.Length == 0)
                 {
                     continue;
                 }
 
-                var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + token;
+                var token = match.Groups["token"].Value;
+                var isStar = match.Groups["star"].Success;
+                var isTouch = match.Groups["touch"].Success;
+                if (!isStar && (!isTouch || token.EndsWith("b", StringComparison.Ordinal) ||
+                    token.EndsWith("x", StringComparison.Ordinal) ||
+                    token.EndsWith("m", StringComparison.Ordinal)))
+                {
+                    throw new FormatException(
+                        "AIRSHIFT hand prefix only supports standalone stars and ordinary TOUCH: " + prefix + token);
+                }
+
+                var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
                 if (sameBeatCounts[beatKey] != 1)
                 {
                     throw new FormatException(
-                        "AIRSHIFT cannot distinguish hand-marked same-token notes in one beat: " +
-                        token + ". Split them across beats or use distinct positions.");
+                        "AIRSHIFT cannot safely match multiple notes at the same area in one beat: " + key);
                 }
 
                 validPrefixes.Add(match.Index);
-                var hand = prefix == "L" ? AirshiftRequiredHand.Left : AirshiftRequiredHand.Right;
-                markers.Add(new Marker(token, index, hand, token[0] is >= '1' and <= '8'));
+                markers.Add(new Marker(
+                    token,
+                    key,
+                    index,
+                    prefix == "L" ? AirshiftRequiredHand.Left : AirshiftRequiredHand.Right,
+                    isStar));
                 output.Append(fumen, previous, match.Index - previous);
                 output.Append(token);
                 previous = match.Index + match.Length;
@@ -111,56 +133,87 @@ namespace MajdataPlay.Scenes.Airshift
                 {
                     throw new FormatException(
                         "Unsupported AIRSHIFT hand prefix at chart character " + possible.Index +
-                        ". First version supports only L/R + standalone star (1$) or TOUCH (A1/B3/C).");
+                        ". First version supports L/R + 1$/1$$ or ordinary TOUCH (A1/B3/C).");
                 }
             }
 
             if (markers.Count == 0)
             {
-                return new Preprocessed(fumen, markers);
+                return new Preprocessed(fumen, markers, sourceCounts);
             }
 
             output.Append(fumen, previous, fumen.Length - previous);
-            return new Preprocessed(output.ToString(), markers);
+            return new Preprocessed(output.ToString(), markers, sourceCounts);
+        }
+
+        private static string GetSourceKey(Match match)
+        {
+            var token = match.Groups["token"].Value;
+            if (match.Groups["tap"].Success || match.Groups["star"].Success)
+            {
+                return "T:A" + token[0];
+            }
+
+            var area = token[0] == 'C' ? "C" : token.Substring(0, 2);
+            return "C:" + area;
         }
 
         /// <summary>
-        /// Applies tags using normalized raw token plus occurrence order.
-        /// Fails closed if MajSimai/MajRadar normalized a token unexpectedly.
+        /// Match independent AIRSHIFT notes by semantic family, sensor and
+        /// chronological ordinal, NOT by adapter RawToken (which is normalized).
+        /// Reject ambiguous counts rather than assigning a hand to wrong notes.
         /// </summary>
         internal static void Apply(AirshiftChart chart, Preprocessed syntax)
         {
+            if (chart is null) throw new ArgumentNullException(nameof(chart));
+            if (syntax is null) throw new ArgumentNullException(nameof(syntax));
+            if (syntax.Markers.Count == 0) return;
+
+            var neededKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var marker in syntax.Markers) neededKeys.Add(marker.Key);
+
             var buckets = new Dictionary<string, List<AirshiftChartNote>>(StringComparer.Ordinal);
             foreach (var note in chart.Notes)
             {
-                var eligible = note.Kind == AirshiftChartNoteKind.Touch ||
-                    (note.Kind == AirshiftChartNoteKind.Tap &&
-                     note.RawToken.Contains("$", StringComparison.Ordinal));
-                if (!eligible) continue;
-
-                if (!buckets.TryGetValue(note.RawToken, out var list))
+                var prefix = note.Kind switch
+                {
+                    AirshiftChartNoteKind.Tap => "T:",
+                    AirshiftChartNoteKind.Touch => "C:",
+                    _ => null,
+                };
+                if (prefix is null) continue;
+                var key = prefix + note.Area;
+                if (!neededKeys.Contains(key)) continue;
+                if (!buckets.TryGetValue(key, out var list))
                 {
                     list = new List<AirshiftChartNote>();
-                    buckets.Add(note.RawToken, list);
+                    buckets.Add(key, list);
                 }
                 list.Add(note);
             }
 
-            foreach (var marker in syntax.Markers)
+            foreach (var key in neededKeys)
             {
-                if (!buckets.TryGetValue(marker.Token, out var matching) ||
-                    marker.Occurrence >= matching.Count)
+                buckets.TryGetValue(key, out var list);
+                var parsedCount = list?.Count ?? 0;
+                var sourceCount = syntax.SourceCounts[key];
+                if (parsedCount != sourceCount)
                 {
                     throw new FormatException(
-                        "AIRSHIFT prefix could not be matched to parsed note '" +
-                        marker.Token + "' occurrence #" + (marker.Occurrence + 1) + ".");
+                        "AIRSHIFT note mapping is ambiguous for " + key +
+                        ": source has " + sourceCount + " simple notes but the adapter produced " +
+                        parsedCount + " candidate chart events. Avoid mixed slide heads or unsupported " +
+                        "modifiers at this position.");
                 }
+            }
 
-                var note = matching[marker.Occurrence];
+            foreach (var marker in syntax.Markers)
+            {
+                var note = buckets[marker.Key][marker.Occurrence];
                 if ((marker.IsStar && note.Kind != AirshiftChartNoteKind.Tap) ||
                     (!marker.IsStar && note.Kind != AirshiftChartNoteKind.Touch))
                 {
-                    throw new FormatException("AIRSHIFT prefix matched an unexpected note type: " + marker.Token);
+                    throw new FormatException("AIRSHIFT marker matched an unexpected note kind: " + marker.Token);
                 }
 
                 note.RequiredHand = marker.RequiredHand;
