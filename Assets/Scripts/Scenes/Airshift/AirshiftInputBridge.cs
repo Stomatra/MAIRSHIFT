@@ -100,4 +100,75 @@ namespace MajdataPlay.Scenes.Airshift
             _pendingGestures.Clear();
         }
     }
+
+    /// <summary>
+    /// Per-frame TOUCH entry buffer that retains each originating hand.
+    /// Repeated entries from the same hand into the same area are coalesced;
+    /// entries from different hands remain independently consumable.
+    /// </summary>
+    internal sealed class AirshiftTouchInputBridge
+    {
+        private readonly List<AirshiftSensorTransition> _pendingEntries = new();
+        private readonly HashSet<(AirshiftSensorArea Area, HandId Hand)> _seenThisFrame = new();
+
+        internal int PendingCount => _pendingEntries.Count;
+
+        internal void BeginFrame()
+        {
+            _pendingEntries.Clear();
+            _seenThisFrame.Clear();
+        }
+
+        internal bool Enqueue(AirshiftSensorTransition transition)
+        {
+            if (!transition.Entered || transition.Area == AirshiftSensorArea.None)
+            {
+                return false;
+            }
+
+            if (!_seenThisFrame.Add((transition.Area, transition.Hand)))
+            {
+                return false;
+            }
+
+            _pendingEntries.Add(transition);
+            return true;
+        }
+
+        internal bool TryConsume(
+            AirshiftSensorArea area,
+            AirshiftRequiredHand requiredHand,
+            out AirshiftSensorTransition transition)
+        {
+            for (int i = 0; i < _pendingEntries.Count; i++)
+            {
+                var candidate = _pendingEntries[i];
+                if (candidate.Area != area)
+                {
+                    continue;
+                }
+
+                bool wrongHand = requiredHand switch
+                {
+                    AirshiftRequiredHand.Any => false,
+                    AirshiftRequiredHand.Left => candidate.Hand != HandId.Left,
+                    AirshiftRequiredHand.Right => candidate.Hand != HandId.Right,
+                    _ => true
+                };
+                if (wrongHand)
+                {
+                    continue;
+                }
+
+                _pendingEntries.RemoveAt(i);
+                transition = candidate;
+                return true;
+            }
+
+            transition = default;
+            return false;
+        }
+
+        internal void Clear() => BeginFrame();
+    }
 }
