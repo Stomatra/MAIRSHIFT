@@ -53,7 +53,8 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode.Support
         public void SetMods(AutoplayModeOption autoplay,
                             JudgeStyleOption judgeStyle = JudgeStyleOption.DEFAULT,
                             bool subdivideSlideJudgeGrade = false,
-                            bool buttonRingForTouch = false)
+                            bool buttonRingForTouch = false,
+                            bool airshiftEnabled = false)
         {
             ModInfo = new GameModInfo()
             {
@@ -62,6 +63,7 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode.Support
                 JudgeStyle = judgeStyle,
                 SubdivideSlideJudgeGrade = subdivideSlideJudgeGrade,
                 ButtonRingForTouch = buttonRingForTouch,
+                AirshiftEnabled = airshiftEnabled,
                 NoteMask = string.Empty
             };
         }

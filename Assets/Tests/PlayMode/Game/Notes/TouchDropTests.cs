@@ -1,5 +1,6 @@
 using System.Collections;
 using MajdataPlay.IO;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game;
 using MajdataPlay.Scenes.Game.Buffers;
 using MajdataPlay.Scenes.Game.Notes;
@@ -122,6 +123,67 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             }
             Assert.That(touch.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.name, Is.EqualTo((string)testCase[4]));
             Assert.That(touch.transform.GetChild(5).GetComponent<SpriteRenderer>().sprite.name, Is.EqualTo("TouchJust"));
+        }
+
+        /// <summary>Red/blue TOUCH fans retain their original fade alpha; Any and STANDARD remain untinted.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftHandedTouches_TintFansPointAndBorderWithoutBreakingFade()
+        {
+            var pointOriginal = _rig.TouchTemplate.transform.GetChild(0).GetComponent<SpriteRenderer>().color;
+            var borderOriginal = _rig.TouchTemplate.transform.GetChild(5).GetComponent<SpriteRenderer>().color;
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+
+            var blue = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B1, timing: 1f, requiredHand: AirshiftRequiredHand.Left));
+            var red = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B2, timing: 1f, requiredHand: AirshiftRequiredHand.Right));
+            var any = _rig.SpawnTouch(GameplayRig.TouchInfo(SensorArea.B3, timing: 1f));
+            yield return null;
+
+            var blueFan = blue.transform.GetChild(1).GetComponent<SpriteRenderer>();
+            var redFan = red.transform.GetChild(1).GetComponent<SpriteRenderer>();
+            var anyFan = any.transform.GetChild(1).GetComponent<SpriteRenderer>();
+            Assert.That(blueFan.color, Is.EqualTo(
+                AirshiftNoteVisualPalette.Multiply(new Color(1f, 1f, 1f, 0f), AirshiftNoteVisualPalette.Left)));
+            Assert.That(redFan.color, Is.EqualTo(
+                AirshiftNoteVisualPalette.Multiply(new Color(1f, 1f, 1f, 0f), AirshiftNoteVisualPalette.Right)));
+            Assert.That(anyFan.color, Is.EqualTo(new Color(1f, 1f, 1f, 0f)));
+            Assert.That(blue.transform.GetChild(0).GetComponent<SpriteRenderer>().color,
+                Is.EqualTo(AirshiftNoteVisualPalette.Multiply(pointOriginal, AirshiftNoteVisualPalette.Left)));
+            Assert.That(red.transform.GetChild(5).GetComponent<SpriteRenderer>().color,
+                Is.EqualTo(AirshiftNoteVisualPalette.Multiply(borderOriginal, AirshiftNoteVisualPalette.Right)));
+
+            UpdateAt(blue, 0.6f);
+            UpdateAt(red, 0.6f);
+            UpdateAt(any, 0.6f);
+
+            Assert.That(blueFan.color.a, Is.InRange(0.6f, 0.85f));
+            Assert.That(redFan.color.a, Is.EqualTo(blueFan.color.a).Within(1e-4f));
+            Assert.That(anyFan.color.a, Is.EqualTo(blueFan.color.a).Within(1e-4f));
+            Assert.That(blueFan.color.r, Is.EqualTo(AirshiftNoteVisualPalette.Left.r).Within(1e-4f));
+            Assert.That(redFan.color.b, Is.EqualTo(AirshiftNoteVisualPalette.Right.b).Within(1e-4f));
+
+            UpdateAt(blue, 0.7f);
+            UpdateAt(red, 0.7f);
+            Assert.That(blueFan.color.a, Is.EqualTo(1f));
+            Assert.That(redFan.color.a, Is.EqualTo(1f));
+        }
+
+        /// <summary>STANDARD TOUCH ignores required-hand metadata and keeps the authored point/border colors.</summary>
+        [UnityTest]
+        public IEnumerator StandardTouch_DoesNotUseHandedTint()
+        {
+            var pointOriginal = _rig.TouchTemplate.transform.GetChild(0).GetComponent<SpriteRenderer>().color;
+            var borderOriginal = _rig.TouchTemplate.transform.GetChild(5).GetComponent<SpriteRenderer>().color;
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var touch = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.D1, requiredHand: AirshiftRequiredHand.Left));
+            yield return null;
+
+            Assert.That(touch.transform.GetChild(1).GetComponent<SpriteRenderer>().color,
+                Is.EqualTo(new Color(1f, 1f, 1f, 0f)));
+            Assert.That(touch.transform.GetChild(0).GetComponent<SpriteRenderer>().color, Is.EqualTo(pointOriginal));
+            Assert.That(touch.transform.GetChild(5).GetComponent<SpriteRenderer>().color, Is.EqualTo(borderOriginal));
         }
 
         /// <summary>Checks the fade-in, the inward fan movement and the arrival with the just border.</summary>

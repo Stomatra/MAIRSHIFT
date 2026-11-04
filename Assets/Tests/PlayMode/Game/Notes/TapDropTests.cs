@@ -1,6 +1,7 @@
 using System.Collections;
 using MajdataPlay.Game.Notes;
 using MajdataPlay.IO;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game;
 using MajdataPlay.Scenes.Game.Buffers;
 using MajdataPlay.Scenes.Game.Notes;
@@ -141,6 +142,49 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(lineRenderer.sprite.name, Is.EqualTo(lineSprite));
             Assert.That(exRenderer.sprite.name, Is.EqualTo(exSprite));
             Assert.That(renderer.sharedMaterial, Is.SameAs(usesBreakMaterial ? _rig.BreakMaterial : _rig.DefaultMaterial));
+        }
+
+        /// <summary>Only AIRSHIFT stars with a required hand receive a red/blue body tint.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftHandedStars_TintBodyWithoutChangingOtherNotes()
+        {
+            var originalColor = _rig.TapTemplate.GetComponent<SpriteRenderer>().color;
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+
+            var blue = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 1, isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var red = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 2, isStar: true, requiredHand: AirshiftRequiredHand.Right));
+            var anyStar = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 3, isStar: true));
+            var regularTap = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 4, isStar: false, requiredHand: AirshiftRequiredHand.Left));
+            yield return null;
+
+            Assert.That(blue.GetComponent<SpriteRenderer>().color,
+                Is.EqualTo(AirshiftNoteVisualPalette.Multiply(originalColor, AirshiftNoteVisualPalette.Left)));
+            Assert.That(red.GetComponent<SpriteRenderer>().color,
+                Is.EqualTo(AirshiftNoteVisualPalette.Multiply(originalColor, AirshiftNoteVisualPalette.Right)));
+            Assert.That(anyStar.GetComponent<SpriteRenderer>().color, Is.EqualTo(originalColor));
+            Assert.That(regularTap.GetComponent<SpriteRenderer>().color, Is.EqualTo(originalColor));
+
+            // The marker is on the star body, not the EX overlay or shared materials.
+            Assert.That(blue.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(blue.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.name,
+                Is.EqualTo("Star_Ex"));
+        }
+
+        /// <summary>STANDARD mode must ignore AIRSHIFT-only hand tint metadata.</summary>
+        [UnityTest]
+        public IEnumerator StandardStar_DoesNotUseHandedTint()
+        {
+            var originalColor = _rig.TapTemplate.GetComponent<SpriteRenderer>().color;
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var standardStar = _rig.SpawnTap(GameplayRig.TapInfo(
+                isStar: true, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            Assert.That(standardStar.GetComponent<SpriteRenderer>().color, Is.EqualTo(originalColor));
         }
 
         /// <summary>Checks the approach animation from the hidden state through scaling to running.</summary>

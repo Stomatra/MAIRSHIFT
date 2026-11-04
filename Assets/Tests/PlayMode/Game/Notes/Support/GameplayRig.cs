@@ -553,7 +553,8 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode.Support
                                              bool isStar = false,
                                              bool isDouble = false,
                                              long index = 0,
-                                             EachLineBinding? binding = null)
+                                             EachLineBinding? binding = null,
+                                             MajdataPlay.Scenes.Airshift.AirshiftRequiredHand requiredHand = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any)
         {
             return new TapPoolingInfo()
             {
@@ -568,6 +569,7 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode.Support
                 IsMine = isMine,
                 IsStar = isStar,
                 IsDouble = isDouble,
+                RequiredHand = requiredHand,
                 RotateSpeed = 90f,
                 QueueInfo = new TapQueueInfo()
                 {
@@ -634,7 +636,8 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode.Support
                                                  bool isMine = false,
                                                  bool isFirework = false,
                                                  TouchGroup? group = null,
-                                                 long index = 0)
+                                                 long index = 0,
+                                                 MajdataPlay.Scenes.Airshift.AirshiftRequiredHand requiredHand = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any)
         {
             return new TouchPoolingInfo()
             {
@@ -649,6 +652,7 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode.Support
                 IsEach = isEach,
                 IsMine = isMine,
                 IsFirework = isFirework,
+                RequiredHand = requiredHand,
                 GroupInfo = group,
                 QueueInfo = new TouchQueueInfo()
                 {

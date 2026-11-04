@@ -26,6 +26,33 @@ namespace MajdataPlay.Tests.EditMode.Game.Scenes.Airshift
         }
 
         [Test]
+        public void HandPalette_OnlyTintsRequiredHandsInAirshift()
+        {
+            Assert.That(AirshiftNoteVisualPalette.GetTint(AirshiftRequiredHand.Left, true),
+                Is.EqualTo(AirshiftNoteVisualPalette.Left));
+            Assert.That(AirshiftNoteVisualPalette.GetTint(AirshiftRequiredHand.Right, true),
+                Is.EqualTo(AirshiftNoteVisualPalette.Right));
+            Assert.That(AirshiftNoteVisualPalette.GetTint(AirshiftRequiredHand.Any, true),
+                Is.EqualTo(Color.white));
+            Assert.That(AirshiftNoteVisualPalette.GetTint(AirshiftRequiredHand.Left, false),
+                Is.EqualTo(Color.white));
+            Assert.That(AirshiftNoteVisualPalette.GetTint(AirshiftRequiredHand.Right, false),
+                Is.EqualTo(Color.white));
+        }
+
+        [Test]
+        public void HandPalette_MultiplyPreservesFadeAlpha()
+        {
+            var fadeColor = new Color(1f, 1f, 1f, 0.37f);
+            var tinted = AirshiftNoteVisualPalette.Multiply(
+                fadeColor, AirshiftNoteVisualPalette.Left);
+            Assert.That(tinted.a, Is.EqualTo(fadeColor.a));
+            Assert.That(tinted.r, Is.EqualTo(AirshiftNoteVisualPalette.Left.r));
+            Assert.That(tinted.g, Is.EqualTo(AirshiftNoteVisualPalette.Left.g));
+            Assert.That(tinted.b, Is.EqualTo(AirshiftNoteVisualPalette.Left.b));
+        }
+
+        [Test]
         public void BothHands_CanBeConsumedIndependently()
         {
             var bridge = new AirshiftInputBridge();

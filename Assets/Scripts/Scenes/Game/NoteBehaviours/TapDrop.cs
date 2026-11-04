@@ -4,6 +4,7 @@ using MajdataPlay.Game.Notes;
 using MajdataPlay.IO;
 using MajdataPlay.Numerics;
 using MajdataPlay.Scenes.Game.Buffers;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game.Notes.Controllers;
 using MajdataPlay.Scenes.Game.Utils;
 using MajdataPlay.Settings;
@@ -40,6 +41,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         NotePoolManager _notePoolManager;
 
         bool _isStarRotation = false;
+        Color _defaultNoteColor = Color.white;
 
         ButtonZone? _buttonPos;
 
@@ -59,6 +61,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             _isStarRotation = Settings.Game.StarRotation;
             _notePoolManager = FindAnyObjectByType<NotePoolManager>();
             _thisRenderer = GetComponent<SpriteRenderer>();
+            _defaultNoteColor = _thisRenderer.color;
 
             _exObject = Transform.GetChild(0).gameObject;
             _exRenderer = _exObject.GetComponent<SpriteRenderer>();
@@ -121,6 +124,11 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             NoteHelper.Sorting.Apply(_tapLineRenderer, NoteHelper.Sorting.NoteLayer.TapLines);
 
             LoadSkin();
+            // Reset per instance on every pool initialization (red/blue -> ordinary).
+            var tint = AirshiftNoteVisualPalette.GetTint(
+                IsStar ? RequiredHand : AirshiftRequiredHand.Any,
+                ModInfo.AirshiftEnabled);
+            _thisRenderer.color = AirshiftNoteVisualPalette.Multiply(_defaultNoteColor, tint);
             SetActiveWithoutRenderer(true);
 
             State = NoteStatus.Inited;
