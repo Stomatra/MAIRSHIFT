@@ -13,6 +13,7 @@ namespace MajdataPlay.Scenes.Game.Buffers
     {
         public char AreaPos { get; init; }
         public bool IsFirework { get; init; }
+        public MajdataPlay.Scenes.Airshift.AirshiftRequiredHand RequiredHand { get; init; } = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any;
         public SensorArea SensorPos { get; init; }
         public TouchQueueInfo QueueInfo { get; init; } = TouchQueueInfo.Default;
         public TouchGroup? GroupInfo { get; set; } = null;

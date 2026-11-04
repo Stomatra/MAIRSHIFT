@@ -20,6 +20,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
     {
         public TouchGroup? GroupInfo { get; set; }
         public TouchQueueInfo QueueInfo { get; set; } = TouchQueueInfo.Default;
+        internal MajdataPlay.Scenes.Airshift.AirshiftRequiredHand RequiredHand { get; private set; } = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any;
 
 
         bool _isFirework = false;
@@ -119,6 +120,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             IsEX = poolingInfo.IsEX;
             IsMine = poolingInfo.IsMine;
             QueueInfo = poolingInfo.QueueInfo;
+            RequiredHand = poolingInfo.RequiredHand;
             IsJudged = false;
             _isFirework = poolingInfo.IsFirework;
             GroupInfo = poolingInfo.GroupInfo;
@@ -242,7 +244,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
             if (!isTooLate)
             {
-                if (GroupInfo is not null)
+                if ((!ModInfo.AirshiftEnabled || RequiredHand == MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any) && GroupInfo is not null)
                 {
                     if (GroupInfo.Percent > 0.5f && GroupInfo.JudgeResult != null)
                     {
@@ -274,7 +276,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             if (ModInfo.AirshiftEnabled)
             {
                 if (NoteController is GamePlayManager gameManager &&
-                    gameManager.TryConsumeAirshiftTouch((int)SensorPos))
+                    gameManager.TryConsumeAirshiftTouch((int)SensorPos, RequiredHand))
                 {
                     Judge(ThisFrameSec);
                 }

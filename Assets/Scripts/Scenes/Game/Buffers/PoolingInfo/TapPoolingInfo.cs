@@ -11,6 +11,7 @@ namespace MajdataPlay.Scenes.Game.Buffers
     internal sealed class TapPoolingInfo : NotePoolingInfo
     {
         public bool IsStar { get; init; }
+        public MajdataPlay.Scenes.Airshift.AirshiftRequiredHand RequiredHand { get; init; } = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any;
         public bool IsDouble { get; init; }
         public float RotateSpeed { get; set; } = 0f;
         public TapQueueInfo QueueInfo { get; init; } = TapQueueInfo.Default;

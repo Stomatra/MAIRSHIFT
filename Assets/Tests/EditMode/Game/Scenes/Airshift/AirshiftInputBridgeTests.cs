@@ -188,5 +188,79 @@ namespace MajdataPlay.Tests.EditMode.Game.Scenes.Airshift
                 CreateGesture(11, HandId.Left, AirshiftArea.A1)),
                 Is.True);
         }
+
+        [Test]
+        public void TouchBridge_WrongHandDoesNotConsumeEntry()
+        {
+            var bridge = new AirshiftTouchInputBridge();
+            bridge.BeginFrame();
+            var entry = new AirshiftSensorTransition(
+                100, HandId.Left, AirshiftSensorArea.B2, true, 1d);
+
+            Assert.That(bridge.Enqueue(entry), Is.True);
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.B2, AirshiftRequiredHand.Right, out _), Is.False);
+            Assert.That(bridge.PendingCount, Is.EqualTo(1));
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.B2, AirshiftRequiredHand.Left, out var matched), Is.True);
+            Assert.That(matched.TransitionId, Is.EqualTo(100));
+            Assert.That(bridge.PendingCount, Is.Zero);
+        }
+
+        [Test]
+        public void TouchBridge_BothHandsSameAreaRemainIndependent()
+        {
+            var bridge = new AirshiftTouchInputBridge();
+            bridge.BeginFrame();
+
+            Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
+                101, HandId.Left, AirshiftSensorArea.C, true, 1d)), Is.True);
+            Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
+                102, HandId.Right, AirshiftSensorArea.C, true, 1.01d)), Is.True);
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.C, AirshiftRequiredHand.Right, out var right), Is.True);
+            Assert.That(right.Hand, Is.EqualTo(HandId.Right));
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.C, AirshiftRequiredHand.Left, out var left), Is.True);
+            Assert.That(left.Hand, Is.EqualTo(HandId.Left));
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.C, AirshiftRequiredHand.Any, out _), Is.False);
+        }
+
+        [Test]
+        public void TouchBridge_IgnoresExitAndRepeatEntriesWithinFrame()
+        {
+            var bridge = new AirshiftTouchInputBridge();
+            bridge.BeginFrame();
+
+            Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
+                200, HandId.Left, AirshiftSensorArea.D1, false, 1d)), Is.False);
+            Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
+                201, HandId.Left, AirshiftSensorArea.D1, true, 1.01d)), Is.True);
+            Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
+                202, HandId.Left, AirshiftSensorArea.D1, true, 1.02d)), Is.False);
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.D1, AirshiftRequiredHand.Any, out _), Is.True);
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.D1, AirshiftRequiredHand.Any, out _), Is.False);
+            bridge.BeginFrame();
+            Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
+                203, HandId.Left, AirshiftSensorArea.D1, true, 1.03d)), Is.True);
+        }
+
+        [Test]
+        public void TouchBridge_OtherAreaIsNotConsumedAndOldFrameExpires()
+        {
+            var bridge = new AirshiftTouchInputBridge();
+            bridge.BeginFrame();
+            bridge.Enqueue(new AirshiftSensorTransition(
+                301, HandId.Right, AirshiftSensorArea.E2, true, 1d));
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.E3, AirshiftRequiredHand.Right, out _), Is.False);
+            bridge.BeginFrame();
+            Assert.That(bridge.TryConsume(
+                AirshiftSensorArea.E2, AirshiftRequiredHand.Right, out _), Is.False);
+        }
+
     }
 }
