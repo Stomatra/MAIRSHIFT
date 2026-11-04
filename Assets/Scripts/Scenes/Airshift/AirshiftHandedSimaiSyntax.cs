@@ -61,6 +61,18 @@ namespace MajdataPlay.Scenes.Airshift
             var matches = NoteToken.Matches(fumen);
             var validPrefixes = new HashSet<int>();
             var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var sameBeatCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (Match candidate in matches)
+            {
+                // All source candidates are counted, even ones without L/R.
+                // Same-raw-token doubles in the same beat need event-ID based
+                // matching; reject them in v1 rather than swapping hands.
+                var beat = fumen.LastIndexOf(',', candidate.Index);
+                var beatKey = beat + ":" + candidate.Groups["token"].Value;
+                sameBeatCounts.TryGetValue(beatKey, out var count);
+                sameBeatCounts[beatKey] = count + 1;
+            }
+
             var markers = new List<Marker>();
             var output = new StringBuilder(fumen.Length);
             var previous = 0;
@@ -77,21 +89,12 @@ namespace MajdataPlay.Scenes.Airshift
                     continue;
                 }
 
-                // Two same-token events in one beat are ambiguous after prefix
-                // removal; do not accidentally swap the assigned hands.
-                var beatStart = fumen.LastIndexOf(',', match.Index);
-                var beatEnd = fumen.IndexOf(',', match.Index);
-                if (beatEnd < 0) beatEnd = fumen.Length;
-                foreach (var existing in markers)
+                var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + token;
+                if (sameBeatCounts[beatKey] != 1)
                 {
-                    if (string.Equals(existing.Token, token, StringComparison.Ordinal) &&
-                        existing.Occurrence != index &&
-                        existing.Occurrence >= 0)
-                    {
-                        // Independent simultaneous mappings require a stable
-                        // source-event ID and will be supported separately.
-                        // The separate beat check below is handled by seen keys.
-                    }
+                    throw new FormatException(
+                        "AIRSHIFT cannot distinguish hand-marked same-token notes in one beat: " +
+                        token + ". Split them across beats or use distinct positions.");
                 }
 
                 validPrefixes.Add(match.Index);
