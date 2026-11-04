@@ -1853,7 +1853,7 @@ namespace MajdataPlay.Scenes.Game
         /// Attempts to consume one AIRSHIFT TAP gesture
         /// for the specified note position.
         /// </summary>
-        internal bool TryConsumeAirshiftTap(int startPos)
+        internal bool TryConsumeAirshiftTap(int startPos, AirshiftRequiredHand requiredHand = AirshiftRequiredHand.Any)
         {
             if (!IsAirshiftMode ||
                 _airshiftInputController is null ||
@@ -1864,7 +1864,12 @@ namespace MajdataPlay.Scenes.Game
             }
             return _airshiftInputBridge.TryConsume(
                 (AirshiftArea)startPos,
-                null,
+                requiredHand switch
+                {
+                    AirshiftRequiredHand.Left => HandId.Left,
+                    AirshiftRequiredHand.Right => HandId.Right,
+                    _ => (HandId?)null
+                },
                 out _
             );
         }
@@ -1876,11 +1881,11 @@ namespace MajdataPlay.Scenes.Game
                 && _airshiftInputController.IsAreaContacted(startPos);
         }
    
-        internal bool TryConsumeAirshiftTouch(int sensorArea)
+        internal bool TryConsumeAirshiftTouch(int sensorArea, AirshiftRequiredHand requiredHand = AirshiftRequiredHand.Any)
         {
             return IsAirshiftMode
                 && _airshiftInputController is not null
-                && _airshiftInputController.TryConsumeTouch(sensorArea);
+                && _airshiftInputController.TryConsumeTouch(sensorArea, requiredHand);
         }
         
         internal bool IsAirshiftTouchContacted(int sensorArea)
