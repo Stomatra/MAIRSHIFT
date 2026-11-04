@@ -214,17 +214,17 @@ namespace MajdataPlay.Tests.EditMode.Game.Scenes.Airshift
             bridge.BeginFrame();
 
             Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
-                101, HandId.Left, AirshiftSensorArea.C3, true, 1d)), Is.True);
+                101, HandId.Left, AirshiftSensorArea.C, true, 1d)), Is.True);
             Assert.That(bridge.Enqueue(new AirshiftSensorTransition(
-                102, HandId.Right, AirshiftSensorArea.C3, true, 1.01d)), Is.True);
+                102, HandId.Right, AirshiftSensorArea.C, true, 1.01d)), Is.True);
             Assert.That(bridge.TryConsume(
-                AirshiftSensorArea.C3, AirshiftRequiredHand.Right, out var right), Is.True);
+                AirshiftSensorArea.C, AirshiftRequiredHand.Right, out var right), Is.True);
             Assert.That(right.Hand, Is.EqualTo(HandId.Right));
             Assert.That(bridge.TryConsume(
-                AirshiftSensorArea.C3, AirshiftRequiredHand.Left, out var left), Is.True);
+                AirshiftSensorArea.C, AirshiftRequiredHand.Left, out var left), Is.True);
             Assert.That(left.Hand, Is.EqualTo(HandId.Left));
             Assert.That(bridge.TryConsume(
-                AirshiftSensorArea.C3, AirshiftRequiredHand.Any, out _), Is.False);
+                AirshiftSensorArea.C, AirshiftRequiredHand.Any, out _), Is.False);
         }
 
         [Test]
