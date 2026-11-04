@@ -4,6 +4,7 @@ using MajdataPlay.Extensions;
 using MajdataPlay.IO;
 using MajdataPlay.Numerics;
 using MajdataPlay.Scenes.Game.Buffers;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game.Notes.Controllers;
 using MajdataPlay.Scenes.Game.Notes.Touch;
 using MajdataPlay.Scenes.Game.Utils;
@@ -48,6 +49,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
         SpriteRenderer _pointRenderer;
         SpriteRenderer _justBorderRenderer;
+        Color _defaultPointColor = Color.white;
+        Color _defaultJustBorderColor = Color.white;
 
         MultTouchHandler _multTouchHandler;
         NotePoolManager _notePoolManager;
@@ -84,6 +87,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
             _justBorderObject = Transform.GetChild(5).gameObject;
             _justBorderRenderer = _justBorderObject.GetComponent<SpriteRenderer>();
+            _defaultPointColor = _pointRenderer.color;
+            _defaultJustBorderColor = _justBorderRenderer.color;
 
             _pointObject.SetActive(true);
             _justBorderObject.SetActive(true);
@@ -231,6 +236,12 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 }
             }
             _justBorderRenderer.sprite = skin.JustBorder;
+
+            // Restore the prefab's colors for every pooled TOUCH, then apply
+            // AIRSHIFT's hand tint without changing sprites or shared materials.
+            var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
+            _pointRenderer.color = AirshiftNoteVisualPalette.Multiply(_defaultPointColor, tint);
+            _justBorderRenderer.color = AirshiftNoteVisualPalette.Multiply(_defaultJustBorderColor, tint);
         }
         private void TooLateCheck()
         {
@@ -547,7 +558,11 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         }
         private void SetFansColor(Color color)
         {
-            foreach (var fan in _fanRenderers) fan.color = color;
+            // The existing fade writes white + animated alpha every frame.
+            // Tint its RGB only, preserving that alpha and STANDARD behavior.
+            var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
+            var output = AirshiftNoteVisualPalette.Multiply(color, tint);
+            foreach (var fan in _fanRenderers) fan.color = output;
         }
         private void SetFansSprite(Sprite sprite)
         {
