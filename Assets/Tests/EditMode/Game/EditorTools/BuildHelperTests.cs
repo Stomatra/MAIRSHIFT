@@ -5,6 +5,7 @@ using MajdataPlay.Editor;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
@@ -70,6 +71,61 @@ namespace MajdataPlay.Tests.Game.EditorTools
 
             Assert.That(processor.callbackOrder, Is.EqualTo(0));
             Assert.That(meshFilter != null, Is.True);
+        }
+
+        /// <summary>Checks that the actual missing SDK path preserves ordinary scene geometry.</summary>
+        [Test]
+        public void CubismPickingBuildProcessor_KeepsGeometryWithoutSdk()
+        {
+            var rendererType = CubismPickingBuildProcessor.CubismRendererType;
+            if (rendererType is not null)
+            {
+                Assert.Ignore("This regression requires an SDK-free project; no SDK substitutes are used.");
+            }
+
+            var meshFilter = _objects.Add<MeshFilter>("PickingWithoutSdk");
+            var meshRenderer = meshFilter.gameObject.AddComponent<MeshRenderer>();
+
+            Assert.DoesNotThrow(() => CubismPickingBuildProcessor.StripPickingGeometry(
+                SceneManager.GetActiveScene(), rendererType));
+
+            Assert.That(meshFilter != null, Is.True);
+            Assert.That(meshRenderer != null, Is.True);
+        }
+
+        /// <summary>Checks cleanup traversal with real Unity components, without emulating an SDK type.</summary>
+        [Test]
+        public void CubismPickingBuildProcessor_StripsOnlyMatchingPickingGeometryIncludingInactiveChildren()
+        {
+            var scene = EditorSceneManager.NewPreviewScene();
+            try
+            {
+                var root = _objects.Create("PickingRoot");
+                SceneManager.MoveGameObjectToScene(root, scene);
+                var rootFilter = root.AddComponent<MeshFilter>();
+                var rootRenderer = root.AddComponent<MeshRenderer>();
+                rootRenderer.enabled = false;
+                rootRenderer.sortingOrder = 17;
+                var child = _objects.Create("InactivePickingChild", root.transform);
+                var childFilter = child.AddComponent<MeshFilter>();
+                var childRenderer = child.AddComponent<MeshRenderer>();
+                child.SetActive(false);
+                var unrelatedFilter = _objects.Add<MeshFilter>("UnrelatedMesh", root.transform);
+
+                CubismPickingBuildProcessor.StripPickingGeometry(scene, typeof(MeshRenderer));
+
+                Assert.That(rootFilter == null, Is.True);
+                Assert.That(childFilter == null, Is.True);
+                Assert.That(rootRenderer != null, Is.True);
+                Assert.That(childRenderer != null, Is.True);
+                Assert.That(rootRenderer.enabled, Is.False);
+                Assert.That(rootRenderer.sortingOrder, Is.EqualTo(17));
+                Assert.That(unrelatedFilter != null, Is.True);
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
         }
 
         /// <summary>Checks that the build processor runs first and restores nothing when no SDK override was made.</summary>

@@ -2,7 +2,6 @@
     "name": "MajdataPlay.Core.Editor",
     "rootNamespace": "MajdataPlay.Editor",
     "references": [
-        "Live2D.Cubism",
         "MajdataPlay.Core",
         "MajdataPlay.Runtime",
         "UniTask",
