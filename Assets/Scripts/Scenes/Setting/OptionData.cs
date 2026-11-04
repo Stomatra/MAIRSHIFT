@@ -1,0 +1,131 @@
+using MajdataPlay.i18n;
+using MajdataPlay.Settings;
+using MajdataPlay.Settings.OptionEnumerators;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using TMPro;
+#nullable enable
+namespace MajdataPlay.Scenes.Setting
+{
+    // The menu owns this state so scrolling can reuse views without rebuilding enumerators.
+    internal sealed class OptionData : IDisposable
+    {
+        internal PropertyInfo PropertyInfo { get; }
+        internal bool HasDescription { get; }
+        internal bool IsOffsetOption { get; }
+        internal string DescriptionKey { get; }
+        internal string LocalizedName { get; private set; }
+        internal string LocalizedValueText => _enumerator.LocalizedValueText;
+
+        private readonly object _menuInstance;
+        private readonly SettingOptionMetadata _metadata;
+        private readonly IOptionEnumerator _enumerator;
+        private object? _lastValue;
+        private Language _language;
+
+        internal OptionData(PropertyInfo propertyInfo, object menuInstance)
+        {
+            var metadata = SettingReflectionCache.GetOption(propertyInfo);
+            PropertyInfo = propertyInfo;
+            _menuInstance = menuInstance;
+            _metadata = metadata;
+            HasDescription = metadata.HasDescription;
+            DescriptionKey = metadata.DescriptionKey;
+            IsOffsetOption = metadata.IsOffsetOption;
+            _enumerator = metadata.CreateEnumerator();
+            _enumerator.Init(propertyInfo, menuInstance);
+            _lastValue = propertyInfo.GetValue(menuInstance);
+            _language = Localization.Current;
+            LocalizedName = metadata.LocalizeName();
+        }
+
+        internal bool RefreshIfChanged()
+        {
+            // Read the setting itself: another enumerator may have changed this property.
+            var value = PropertyInfo.GetValue(_menuInstance);
+            if (Equals(_lastValue, value))
+            {
+                return false;
+            }
+
+            Refresh();
+            return true;
+        }
+
+        internal void Refresh()
+        {
+            _enumerator.Refresh();
+            _lastValue = PropertyInfo.GetValue(_menuInstance);
+        }
+
+        internal void RefreshLocalization()
+        {
+            var language = Localization.Current;
+            if (ReferenceEquals(_language, language))
+            {
+                return;
+            }
+
+            _enumerator.RefreshLocalization();
+            LocalizedName = _metadata.LocalizeName();
+            _language = language;
+        }
+
+        internal void CollectWarmupText(SettingFontWarmup warmup, IEnumerable<TMP_FontAsset> optionFonts, TMP_FontAsset descriptionFont)
+        {
+            RefreshLocalization();
+            foreach (var font in optionFonts)
+            {
+                warmup.AddText(font, LocalizedName);
+                // 实际尺寸可能在菜单打开后变化；预热所有数字，不能只预热初始的 "--"。
+                if (PropertyInfo.Name is nameof(RenderingOptions.DisplayBufferResolution) or nameof(RenderingOptions.SceneRenderResolution))
+                {
+                    warmup.AddText(font, "0123456789 x-");
+                }
+
+                if (_enumerator is OptionEnumeratorBase enumerator)
+                {
+                    // Include enum, language and skin labels that are not currently selected.
+                    foreach (var value in enumerator.LocalizedValuesForWarmup)
+                    {
+                        warmup.AddText(font, value);
+                    }
+                }
+                else
+                {
+                    warmup.AddText(font, LocalizedValueText);
+                }
+            }
+            if (HasDescription)
+            {
+                warmup.AddText(descriptionFont, DescriptionKey.i18n());
+            }
+        }
+
+        internal bool MoveNext()
+        {
+            return Move(true);
+        }
+
+        internal bool MovePrevious()
+        {
+            return Move(false);
+        }
+
+        private bool Move(bool moveNext)
+        {
+            var hasChanged = moveNext ? _enumerator.MoveNext() : _enumerator.MovePrevious();
+            if (hasChanged)
+            {
+                Refresh();
+            }
+            return hasChanged;
+        }
+
+        public void Dispose()
+        {
+            _enumerator.Dispose();
+        }
+    }
+}
