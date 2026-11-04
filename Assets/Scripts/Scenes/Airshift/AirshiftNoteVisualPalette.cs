@@ -34,3 +34,4 @@ namespace MajdataPlay.Scenes.Airshift
             baseColor.b * tint.b,
             baseColor.a * tint.a);
     }
+}
