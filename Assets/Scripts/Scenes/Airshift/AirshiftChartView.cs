@@ -120,9 +120,14 @@ namespace MajdataPlay.Scenes.Airshift
                 var displayed = Vector2.Lerp(new Vector2(0.5f, 0.5f), target, progress);
                 var screen = ToScreen(playfield, displayed);
                 var size = playfield.width * (note.Kind is AirshiftChartNoteKind.Touch or AirshiftChartNoteKind.TouchHold ? 0.085f : 0.065f);
-                GUI.color = NoteColor(note);
+                var noteColor = NoteColor(note);
+                GUI.color = noteColor;
                 var noteRect = Centered(screen, size);
-                if (!AirshiftStandardVisualResources.DrawSprite(ResolveNoteSprite(skin, note), noteRect, Color.white))
+                // DrawSprite sets its own GUI.color; supply the tint explicitly.
+                // Preserve original skin rendering for unmarked Simai notes.
+                var spriteTint = note.RequiredHand == AirshiftRequiredHand.Any
+                    ? Color.white : noteColor;
+                if (!AirshiftStandardVisualResources.DrawSprite(ResolveNoteSprite(skin, note), noteRect, spriteTint))
                 {
                     GUI.DrawTexture(noteRect, _disc);
                 }
@@ -288,6 +293,12 @@ namespace MajdataPlay.Scenes.Airshift
 
         private static Color NoteColor(AirshiftChartNote note)
         {
+            if (note.RequiredHand != AirshiftRequiredHand.Any &&
+                (note.Kind == AirshiftChartNoteKind.Touch ||
+                 (note.Kind == AirshiftChartNoteKind.Tap && note.IsSlideHead)))
+            {
+                return AirshiftNoteVisualPalette.GetTint(note.RequiredHand, true);
+            }
             if (note.IsBreak)
             {
                 return new Color32(255, 105, 35, 255);
