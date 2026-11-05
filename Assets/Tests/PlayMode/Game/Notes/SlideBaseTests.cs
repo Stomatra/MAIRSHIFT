@@ -285,6 +285,137 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(arrows[0].color.b, Is.EqualTo(1f).Within(0.00001f));
         }
 
+
+        /// <summary>
+        /// EACH SLIDE arrows retain their blue/red tinted bodies, with
+        /// separate yellow silhouettes whose alpha follows the arrow fade.
+        /// </summary>
+        [Test]
+        public void AirshiftEachSlide_BarOutlineFollowsFadeAndProgress()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var slide = CreateSlide();
+            slide.IsEach = true;
+            slide.RequiredHand = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Right;
+            var bars = AddBars(slide, 3);
+            var originalMaterial = bars[0].sharedMaterial;
+
+            slide.RunSetSlideBarAlpha(0.45f);
+
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(yellow, Is.Not.Null);
+            foreach (var bar in bars)
+            {
+                var child = bar.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(child, Is.Not.Null);
+                var outline = child!.GetComponent<SpriteRenderer>();
+                Assert.That(outline.enabled, Is.True);
+                Assert.That(outline.color.a, Is.EqualTo(bar.color.a).Within(0.0001f));
+                Assert.That(outline.color.r, Is.EqualTo(1f));
+                Assert.That(outline.sharedMaterial, Is.SameAs(yellow));
+                Assert.That(outline.sprite, Is.SameAs(bar.sprite));
+            }
+            Assert.That(bars[0].sharedMaterial, Is.SameAs(originalMaterial));
+            Assert.That(bars[0].color.r, Is.LessThan(1f));
+
+            slide.RunHideBar(1);
+            Assert.That(bars[0].enabled, Is.False);
+            Assert.That(bars[0].transform.Find("AIRSHIFT_EachYellowOutline")
+                .GetComponent<SpriteRenderer>().enabled, Is.False);
+            Assert.That(bars[1].transform.Find("AIRSHIFT_EachYellowOutline")
+                .GetComponent<SpriteRenderer>().enabled, Is.True);
+
+            slide.RunHideAllBar();
+            foreach (var bar in bars)
+            {
+                Assert.That(bar.transform.Find("AIRSHIFT_EachYellowOutline")
+                    .GetComponent<SpriteRenderer>().enabled, Is.False);
+            }
+        }
+
+        /// <summary>
+        /// The yellow outlines must not reappear for the next unmarked
+        /// slide on a reused renderer, but may be reused by a new EACH.
+        /// </summary>
+        [Test]
+        public void AirshiftEachSlide_OutlineDisablesOnNonEachReuse()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var slide = CreateSlide();
+            slide.IsEach = true;
+            var bars = AddBars(slide, 1);
+            slide.RunSetSlideBarAlpha(0.6f);
+            var outline = bars[0].transform.Find("AIRSHIFT_EachYellowOutline")
+                .GetComponent<SpriteRenderer>();
+            Assert.That(outline.enabled, Is.True);
+
+            slide.IsEach = false;
+            slide.RunSetSlideBarAlpha(0.8f);
+            Assert.That(bars[0].enabled, Is.True);
+            Assert.That(outline.enabled, Is.False);
+
+            slide.IsEach = true;
+            slide.RunSetSlideBarAlpha(0.3f);
+            Assert.That(outline.enabled, Is.True);
+            Assert.That(bars[0].transform.Find("AIRSHIFT_EachYellowOutline")
+                .GetComponent<SpriteRenderer>(), Is.SameAs(outline));
+        }
+
+        /// <summary>
+        /// The moving star (including one of three possible WIFI slots)
+        /// can show a yellow silhouette without changing its original
+        /// color, and it tracks visibility plus animated transparency.
+        /// </summary>
+        [Test]
+        public void AirshiftEachSlide_MovingStarOutlineTracksAlphaAndVisibility()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var slide = CreateSlide();
+            slide.IsEach = true;
+            var star = NoteTemplates.RendererChild("Star", slide.transform);
+            slide.SetStar(1, star);
+            star.color = new Color(0.3f, 0.4f, 0.9f, 0.25f);
+
+            slide.RunSetStarActive(true);
+            var outlineTransform = star.transform.Find("AIRSHIFT_EachYellowOutline");
+            Assert.That(outlineTransform, Is.Not.Null);
+            var outline = outlineTransform!.GetComponent<SpriteRenderer>();
+            Assert.That(outline.enabled, Is.True);
+            Assert.That(outline.color.a, Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(star.color.r, Is.EqualTo(0.3f));
+            Assert.That(outline.sharedMaterial,
+                Is.SameAs(Resources.Load<Material>("Airshift/EachSilhouette")));
+
+            star.color = new Color(0.3f, 0.4f, 0.9f, 0.9f);
+            slide.RunSetStarActive(true);
+            Assert.That(outline.color.a, Is.EqualTo(0.9f).Within(0.0001f));
+
+            slide.RunSetStarActive(false);
+            Assert.That(outline.enabled, Is.False);
+        }
+
+        /// <summary>
+        /// STANDARD and ordinary AIRSHIFT slides do not create yellow
+        /// silhouettes, even if their original game flags contain EACH.
+        /// </summary>
+        [Test]
+        public void SlideEachOutline_StandardAndOrdinaryRemainUnchanged()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var standard = CreateSlide();
+            standard.IsEach = true;
+            var standardBars = AddBars(standard, 1);
+            standard.RunSetSlideBarAlpha(0.5f);
+            Assert.That(standardBars[0].transform.Find("AIRSHIFT_EachYellowOutline"), Is.Null);
+
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var ordinary = CreateSlide();
+            ordinary.IsEach = false;
+            var ordinaryBars = AddBars(ordinary, 1);
+            ordinary.RunSetSlideBarAlpha(0.5f);
+            Assert.That(ordinaryBars[0].transform.Find("AIRSHIFT_EachYellowOutline"), Is.Null);
+        }
+
         /// <summary>Checks the alpha and material setters of the bars.</summary>
         [Test]
         public void SlideBarRender_SetsAlphaAndMaterial()
