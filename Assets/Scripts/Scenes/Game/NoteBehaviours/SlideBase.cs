@@ -184,6 +184,47 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         [SerializeField]
         protected readonly PooledList<SpriteRenderer> SlideBarRenderers = new();
         protected readonly PooledList<Transform> SlideBarTransforms = new();
+
+        // EACH is computed by the original chart loader for native,
+        // translated, chained and WIFI SLIDE. These are visual-only,
+        // independent children and never participate in the judge queues.
+        private readonly List<SpriteRenderer?> _airshiftEachBarOutlines = new();
+        private readonly SpriteRenderer?[] _airshiftEachStarOutlines = new SpriteRenderer?[3];
+
+        private bool ShowAirshiftSlideEach => ModInfo.AirshiftEnabled && IsEach && !IsMine;
+
+        private void SyncSlideBarEachOutline(int index, SpriteRenderer source)
+        {
+            while (_airshiftEachBarOutlines.Count <= index)
+            {
+                _airshiftEachBarOutlines.Add(null);
+            }
+
+            var outline = _airshiftEachBarOutlines[index];
+            AirshiftEachOutline.Sync(ref outline, source,
+                ShowAirshiftSlideEach && source.enabled, source.color.a);
+            _airshiftEachBarOutlines[index] = outline;
+        }
+
+        /// <summary>
+        /// Refreshes the moving STAR yellow outline after its animated
+        /// opacity changes, without affecting the original skin or color.
+        /// </summary>
+        protected void SyncSlideStarEachOutlines()
+        {
+            var stars = StarRenderers.Span;
+            for (var index = 0; index < stars.Length; index++)
+            {
+                var source = stars[index];
+                if (source is null)
+                {
+                    continue;
+                }
+
+                AirshiftEachOutline.Sync(ref _airshiftEachStarOutlines[index], source,
+                    ShowAirshiftSlideEach && source.enabled, source.color.a);
+            }
+        }
         /// <summary>
         /// Slide star
         /// </summary>
@@ -674,6 +715,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 ref var slideBarRenderer = ref Unsafe.Add(ref slideBarRenderersRef, LastHiddenSlideBarIndex);
                 //_slideBarRenderers[i].forceRenderingOff = true;
                 slideBarRenderer.enabled = false;
+                // The matching outline must disappear with this judged bar.
+                SyncSlideBarEachOutline(LastHiddenSlideBarIndex, slideBarRenderer);
             }
         }
         [Il2CppSetOption(Option.NullChecks, false)]
@@ -755,6 +798,9 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         sr.sharedMaterial = material;
                         break;
                 }
+                // Preserve the same sprite/alpha; yellow never multiplies
+                // the blue/red source tint or the source's break material.
+                SyncSlideBarEachOutline(i, sr);
             }
         }
         [Il2CppSetOption(Option.NullChecks, false)]
@@ -769,6 +815,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             {
                 ref var slideBarRenderer = ref Unsafe.Add(ref slideBarRenderersRef, i);
                 slideBarRenderer.enabled = state;
+                SyncSlideBarEachOutline(i, slideBarRenderer);
             }
             SetStarActive(state);
         }
@@ -787,6 +834,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 }
                 starRenderer.enabled = state;
             }
+            SyncSlideStarEachOutlines();
         }
         [Il2CppSetOption(Option.NullChecks, false)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
