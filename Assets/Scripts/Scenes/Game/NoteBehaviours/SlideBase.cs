@@ -33,6 +33,9 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             required == AirshiftRequiredHand.Left && hand == HandId.Left ||
             required == AirshiftRequiredHand.Right && hand == HandId.Right;
 
+        // Only the AIRSHIFT WIFI note uses this distinct physical hand policy.
+        private readonly AirshiftWifiLaneHandPolicy _wifiHandPolicy = new();
+        protected void ResetAirshiftWifiHandPolicy() => _wifiHandPolicy.Reset();
         const int SLIDE_BAR_MODE_SET_ALPHA = 1;
         const int SLIDE_BAR_MODE_SET_MATERIAL = 2;
         const int SLIDE_BAR_MODE_SET_ALPHA_AND_MATERIAL = 3;
@@ -413,7 +416,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                                 leftArea,
                                 rightArea,
                                 wifiArea,
-                                useVirtualCenter);
+                                useVirtualCenter,
+                                wifiGame is not null ? x : -1);
 
                             first.Check(area, sensorState);
                         }
@@ -434,7 +438,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                                     leftArea,
                                     rightArea,
                                     wifiArea,
-                                    useVirtualCenter);
+                                    useVirtualCenter,
+                                wifiGame is not null ? x : -1);
 
                                 second.Check(area, sensorState);
                             }
@@ -484,7 +489,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             AirshiftSensorArea leftArea,
             AirshiftSensorArea rightArea,
             AirshiftSensorArea wifiArea,
-            bool useVirtualCenter)
+            bool useVirtualCenter,
+            int wifiLane)
         {
             // Keep STANDARD unchanged.
             if (!isAirshift)
@@ -492,13 +498,23 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 return NoteManager.GetSensorStatusInThisFrame(area);
             }
 
-            bool pressed =
-                (CanUseAirshiftHand(RequiredHand, HandId.Left) &&
-                 leftArea != AirshiftSensorArea.None &&
-                 (int)leftArea == (int)area) ||
-                (CanUseAirshiftHand(RequiredHand, HandId.Right) &&
-                 rightArea != AirshiftSensorArea.None &&
-                 (int)rightArea == (int)area);
+            bool pressed;
+            if (wifiLane == 0 || wifiLane == 2)
+            {
+                pressed = _wifiHandPolicy.IsOuterLanePressed(
+                    wifiLane, (AirshiftSensorArea)(int)area,
+                    (AirshiftSensorArea)(StartPos - 1), leftArea, rightArea);
+            }
+            else
+            {
+                pressed =
+                    (CanUseAirshiftHand(RequiredHand, HandId.Left) &&
+                     leftArea != AirshiftSensorArea.None &&
+                     (int)leftArea == (int)area) ||
+                    (CanUseAirshiftHand(RequiredHand, HandId.Right) &&
+                     rightArea != AirshiftSensorArea.None &&
+                     (int)rightArea == (int)area);
+            }
 
             // The virtual thumb is accepted only for WIFI lane 1.
             if (useVirtualCenter &&

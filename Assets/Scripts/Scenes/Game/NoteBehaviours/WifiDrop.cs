@@ -157,6 +157,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 return;
             }
             
+            ResetAirshiftWifiHandPolicy();
             _wifiTable.Dispose();
             _wifiTable = SlideTables.GetWifiTable(StartPos);
             var wifiConst = _wifiTable.Const;
