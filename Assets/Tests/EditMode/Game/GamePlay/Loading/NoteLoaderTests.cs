@@ -337,6 +337,41 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
             Assert.That(actual, Is.EqualTo(AirshiftRequiredHand.Right));
         }
 
+
+        /// <summary>Each independently parsed parallel path keeps its own hand after folding.</summary>
+        [Test]
+        public void AirshiftParallelSlide_IndependentHandTagsSurviveFolding()
+        {
+            var left = new SimaiNote
+            {
+                Type = SimaiNoteType.Slide,
+                StartPosition = 1,
+                RawContent = "1-4[8:1]",
+                SlideStartTime = 1,
+                SlideTime = 1
+            };
+            var right = new SimaiNote
+            {
+                Type = SimaiNoteType.Slide,
+                StartPosition = 1,
+                RawContent = "1-6[8:1]",
+                SlideStartTime = 1,
+                SlideTime = 1
+            };
+            _loader.HandBindings = new Dictionary<SimaiNote, AirshiftRequiredHand>
+            {
+                [left] = AirshiftRequiredHand.Left,
+                [right] = AirshiftRequiredHand.Right
+            };
+            var sourceNotes = new[] { left, right };
+            Assert.That(Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", CreateFoldedSlide(left.RawContent), sourceNotes),
+                Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", CreateFoldedSlide(right.RawContent), sourceNotes),
+                Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
         /// <summary>Untagged or mismatched slide sources do not steal a hand marker.</summary>
         [Test]
         public void AirshiftHandedStraightSlide_DoesNotRetagOtherSlideShape()
