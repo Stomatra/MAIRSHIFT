@@ -103,7 +103,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         var alpha = (1f - -timing / (StartTiming - Timing)).Clamp(0, 1);
 
                         StarRenderer.color = HandedStarColor(alpha);
-                            SyncSlideStarEachOutlines();
+                        SyncSlideStarEachOutlines();
                         if (IsClassic)
                         {
                             var scale = 1 + alpha / 2;
