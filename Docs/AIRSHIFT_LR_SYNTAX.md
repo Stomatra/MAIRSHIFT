@@ -17,6 +17,8 @@ ordinary Simai notes:
 | `LA1` | Blue TOUCH at A1, left hand required |
 | `RB3` | Red TOUCH at B3, right hand required |
 | `LC` | Blue center TOUCH, left hand required |
+| `L1-5[8:1]` | Blue straight SLIDE, left hand required |
+| `R3-7[8:1]` | Red straight SLIDE, right hand required |
 | `1$`, `A1`, `C` | Original Simai notes, either hand |
 
 Example Master chart:
@@ -108,7 +110,7 @@ current chart preprocessor. Adding that syntax is a separate gameplay change.
 
 - Supported new tokens are `L/R + 1$`, `1$$` or basic TOUCH such as `LA1`,
   `RB3`, `LC`. Unprefixed notes retain ordinary Simai semantics.
-- No handed SLIDE head (`L1-5[8:1]`), HOLD, TOUCH HOLD, or MINE yet.
+- Basic one-segment straight slides now accept `L1-5[8:1]` / `R3-7[8:1]` in the stacked PR #12. Their head STAR and guide follow the hand tint and only the assigned cursor advances the existing sensor-path judge. Curve/chain/WIFI hand syntax, directional one-flick judging, HOLD, TOUCH HOLD, and MINE are outside this stage.
 - Same-position/same-beat **opposite-hand standalone STAR pairs** are now
   permitted by the stacked overlap PR: `L1$/R1$`, `R1$/L1$`, and matching
   `L1$$/R1$$`. Only exactly two **identical STAR variants**, one L and
@@ -134,6 +136,8 @@ ordinary Simai notes:
 | `LA1` | Blue TOUCH at A1, left hand required |
 | `RB3` | Red TOUCH at B3, right hand required |
 | `LC` | Blue center TOUCH, left hand required |
+| `L1-5[8:1]` | Blue straight SLIDE, left hand required |
+| `R3-7[8:1]` | Red straight SLIDE, right hand required |
 | `1$`, `A1`, `C` | Original Simai notes, either hand |
 
 Example Master chart:
@@ -225,7 +229,7 @@ current chart preprocessor. Adding that syntax is a separate gameplay change.
 
 - Supported new tokens are `L/R + 1$`, `1$$` or basic TOUCH such as `LA1`,
   `RB3`, `LC`. Unprefixed notes retain ordinary Simai semantics.
-- No handed SLIDE head (`L1-5[8:1]`), HOLD, TOUCH HOLD, or MINE yet.
+- Basic one-segment straight slides now accept `L1-5[8:1]` / `R3-7[8:1]` in the stacked PR #12. Their head STAR and guide follow the hand tint and only the assigned cursor advances the existing sensor-path judge. Curve/chain/WIFI hand syntax, directional one-flick judging, HOLD, TOUCH HOLD, and MINE are outside this stage.
 - Same-position/same-beat **opposite-hand standalone STAR pairs** are now
   permitted by the stacked overlap PR: `L1$/R1$`, `R1$/L1$`, and matching
   `L1$$/R1$$`. Only exactly two **identical STAR variants**, one L and
