@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using MajdataPlay.Game.Notes;
 using MajdataPlay.IO;
