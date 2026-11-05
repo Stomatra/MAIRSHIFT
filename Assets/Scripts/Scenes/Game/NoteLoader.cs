@@ -18,6 +18,7 @@ using MajdataPlay.Scenes.Game.Notes.Touch;
 using MajdataPlay.Scenes.Game.Parsing;
 using MajdataPlay.Scenes.Game.Parsing.Slide;
 using MajdataPlay.Scenes.Game.Utils;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Settings;
 using MajSimai;
 using System;
@@ -45,6 +46,19 @@ namespace MajdataPlay.Scenes.Game
         /// to compare the two.
         /// </summary>
         internal bool IsSimaiSlideTranslated { get; set; } = true;
+        /// <summary>
+        /// Optional AIRSHIFT hand tags keyed by the original parsed Simai notes.
+        /// This is null for STANDARD mode, preserving original note loading.
+        /// Non-slide Simai objects survive NoteFolding unchanged.
+        /// </summary>
+        internal IReadOnlyDictionary<SimaiNote, AirshiftRequiredHand>? HandBindings { get; set; }
+
+        private AirshiftRequiredHand RequiredHandFor(SimaiNote note)
+        {
+            return HandBindings is not null && HandBindings.TryGetValue(note, out var hand)
+                ? hand : AirshiftRequiredHand.Any;
+        }
+
         /// <summary>
         /// Gets or sets how the arrows of a translated simai connection slide are placed along its segments. Slides
         /// written as slide code and simai slides with a single segment do not depend on it. The game and view scenes
@@ -594,6 +608,7 @@ namespace MajdataPlay.Scenes.Game
                     IsEX = note.IsEx,
                     IsMine = isMine,
                     IsStar = note.IsForceStar,
+                    RequiredHand = RequiredHandFor(note),
                     RotateSpeed = note.IsFakeRotate ? -440f : 0,
                     QueueInfo = new TapQueueInfo()
                     {
@@ -768,6 +783,7 @@ namespace MajdataPlay.Scenes.Game
                     IsBreak = isBreak,
                     IsEX = false,
                     IsMine = isMine,
+                    RequiredHand = RequiredHandFor(note),
                     NoteSortOrder = noteSortOrder,
                     QueueInfo = queueInfo,
                 };
