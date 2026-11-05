@@ -51,6 +51,35 @@ The existing `AirshiftList`/`AirshiftGame` prototype files remain in the
 repository but are **not used by the shared Game entry path**. This PR does not
 modify the STANDARD game's scene, skin resources, or score storage.
 
+## Skin compatibility and hand colors
+
+AIRSHIFT **does not replace the user's note skin**. The shared Game scene uses
+the normal `SkinManager.GetStarSkin()` and `GetTouchSkin()` selection, and
+`TapDrop` / `TouchDrop` continue to render those same skin sprites.
+
+Current implementation (from PR #3):
+- An L/R STAR tints the main STAR SpriteRenderer blue/red.
+- An L/R TOUCH tints its fan sprites, center point, and judgment border,
+  while preserving each fan's animated alpha.
+- Unmarked notes and STANDARD mode keep normal skin colors.
+- Tint is per-note renderer state, reset on pooled-note initialization, and
+  never modifies source PNGs, shared Sprite objects, or shared materials.
+
+**Caveat:** current `SpriteRenderer.color` multiplies the image's original RGB
+by the hand color. This works well on white/light neutral skins but **cannot
+guarantee recognizable blue/red** for an arbitrary strongly colored or dark
+skin. A follow-up visual pass should offer:
+1. Default palette-recolor shader, based on the source sprite's luminance and
+   alpha, retaining texture highlights/shadows but enforcing hand hue.
+2. Optional left/right STAR and TOUCH skin overrides, when a skin author
+   supplies dedicated assets. Missing overrides fall back to runtime recolor.
+3. Fallback to existing renderer RGB multiplication until the shader and skin
+   override path are verified in Unity's MajRenderPipeline.
+
+Slide-head STARs use the same general STAR visual mechanism; **L/R-prefixed
+SLIDE syntax is not yet supported**, so they cannot be hand-tagged by the
+current chart preprocessor. Adding that syntax is a separate gameplay change.
+
 ## Current v1 restrictions
 
 - Supported new tokens are `L/R + 1$`, `1$$` or basic TOUCH such as `LA1`,
