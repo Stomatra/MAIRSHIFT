@@ -1,4 +1,5 @@
 using MajdataPlay.Extensions;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Numerics;
 using MajdataPlay.Scenes.Game.Notes.Slide;
 using MajdataPlay.Scenes.Game.Notes.Slide.Utils;
@@ -177,6 +178,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
             State = NoteStatus.Inited;
             DJAutoplayRatio = SlideLength / 14;
+            AirshiftSlideOverlapRegistry.Register(this);
 //#if UNITY_EDITOR
 //            var obj = Instantiate(_slideBars[0]);
 //            Destroy(obj.GetComponent<SpriteRenderer>());
@@ -336,6 +338,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
         void OnDestroy()
         {
+            AirshiftSlideOverlapRegistry.Unregister(this);
             Table?.Dispose();
             StarPositions.Dispose();
             StarRotations.Dispose();
