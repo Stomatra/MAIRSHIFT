@@ -81,6 +81,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             {
                 return;
             }
+            // Release any previous registration before a pooled note changes identity.
+            AirshiftStarOverlapRegistry.Unregister(this);
             _eachLineBinding = poolingInfo.EachLineBinding;
             if (_eachLineBinding is not null)
             {
@@ -132,6 +134,20 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             SetActiveWithoutRenderer(true);
 
             State = NoteStatus.Inited;
+            // A split is purely visual: both note instances keep independent judging.
+            if (ModInfo.AirshiftEnabled &&
+                IsStar &&
+                !IsBreak &&
+                !IsMine &&
+                !IsEX &&
+                (RequiredHand == AirshiftRequiredHand.Left || RequiredHand == AirshiftRequiredHand.Right))
+            {
+                AirshiftStarOverlapRegistry.Register(this, _thisRenderer, NoteController);
+            }
+        }
+        private void OnDestroy()
+        {
+            AirshiftStarOverlapRegistry.Unregister(this);
         }
         private void End()
         {
@@ -140,6 +156,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 return;
             }
             State = NoteStatus.End;
+            AirshiftStarOverlapRegistry.Unregister(this);
             
             if (_eachLineBinding is not null)
             {
