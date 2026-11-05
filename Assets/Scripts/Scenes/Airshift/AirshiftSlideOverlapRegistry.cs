@@ -290,7 +290,13 @@ namespace MajdataPlay.Scenes.Airshift
             var localRight = source.transform.worldToLocalMatrix.MultiplyVector(
                 new Vector3(rightWorld.x, rightWorld.y, 0f));
             if (localRight.sqrMagnitude < 1e-8f)
-                localRight = Vector3.right;
+            {
+                // Moving STARs are spawned with X/Y scale zero.
+                // A singular world-to-local matrix must not force a
+                // screen-X split on a turning or mirrored trajectory.
+                localRight = Quaternion.Inverse(source.transform.rotation) *
+                    new Vector3(rightWorld.x, rightWorld.y, 0f);
+            }
             localRight.Normalize();
 
             source.GetPropertyBlock(properties);
@@ -311,9 +317,13 @@ namespace MajdataPlay.Scenes.Airshift
         {
             if (!entry.Split)
                 return;
-            entry.Star.sharedMaterial = entry.StarMaterial;
+            if (entry.Star != null)
+                entry.Star.sharedMaterial = entry.StarMaterial;
             for (var i = 0; i < entry.Bars.Length; i++)
-                entry.Bars[i].sharedMaterial = entry.BarMaterials[i];
+            {
+                if (entry.Bars[i] != null)
+                    entry.Bars[i].sharedMaterial = entry.BarMaterials[i];
+            }
             entry.Split = false;
         }
     }
