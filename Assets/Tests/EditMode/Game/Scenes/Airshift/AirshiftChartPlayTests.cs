@@ -141,9 +141,9 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
 
 
         /// <summary>Handed single straight SLIDE maps to the original parsed Slide note.</summary>
-        [TestCase("(120){4}L1-5[8:1],E", "(120){4}1-5[8:1],E", AirshiftRequiredHand.Left)]
-        [TestCase("(120){4}R3-7[8:1],E", "(120){4}3-7[8:1],E", AirshiftRequiredHand.Right)]
-        public void GameSyntax_StraightSlideBindsHand(string source, string output, AirshiftRequiredHand hand)
+        [TestCase("(120){4}L1-5[8:1],E", "(120){4}1-5[8:1],E", "Left")]
+        [TestCase("(120){4}R3-7[8:1],E", "(120){4}3-7[8:1],E", "Right")]
+        public void GameSyntax_StraightSlideBindsHand(string source, string output, string expectedHand)
         {
             var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
             Assert.That(syntax.SimaiText, Is.EqualTo(output));
@@ -153,7 +153,7 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             var slides = FlattenNotes(chart).Where(note => note.Type == SimaiNoteType.Slide).ToArray();
             Assert.That(slides, Has.Length.EqualTo(1));
             Assert.That(bindings.Count, Is.EqualTo(1));
-            Assert.That(bindings[slides[0]], Is.EqualTo(hand));
+            Assert.That(bindings[slides[0]], Is.EqualTo(Enum.Parse<AirshiftRequiredHand>(expectedHand)));
         }
 
         /// <summary>Source occurrences preserve the right marker even after an ordinary slide.</summary>
