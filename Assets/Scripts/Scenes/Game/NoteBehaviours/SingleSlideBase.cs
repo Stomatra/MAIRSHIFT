@@ -157,6 +157,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                             {
                                 starTransform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
                             }
+                            AirshiftSlideOverlapRegistry.RefreshStar(this);
                             SetStarActive(true);
 
                             State = NoteStatus.Running;
@@ -184,6 +185,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         {
                             starTransform.localScale = new Vector3(alpha + 0.5f, alpha + 0.5f, alpha + 0.5f);
                         }
+                        AirshiftSlideOverlapRegistry.RefreshStar(this);
                         break;
                     case NoteStatus.Running:
                         var remaingTimeWithoutOffset = GetRemainingTimeWithoutOffset();
