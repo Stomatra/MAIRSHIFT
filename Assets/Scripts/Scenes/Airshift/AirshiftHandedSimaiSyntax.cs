@@ -18,6 +18,12 @@ namespace MajdataPlay.Scenes.Airshift
             @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?<slide>[1-8](?=[\-^<>pqszvVw])[^,/\x60\s]+)|(?<star>[1-8]\$\$?)|(?<tap>[1-8][bxm]?)|(?<touch>(?:[ABDE][1-8]|C)[fbxm]?))(?=[,/\x60\s]|$)",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+        // A pair of complete AIRSHIFT-hand-tagged paths sharing the
+        // start key is an L/R dual-hand fork. Unmarked '*' stays intact.
+        private static readonly Regex HandedParallelPair = new(
+            @"(?<![A-Za-z0-9_])(?<first>[LR](?<start>[1-8])[-^<>pqszvV][^,/*\x60\s]+)\*(?<second>[LR](?<endstart>[1-8])[-^<>pqszvV][^,/*\x60\s]+)(?=[,/\x60\s]|$)",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
         // Catch unsupported prefixes such as L1h, R1-5, LA1h, etc.
         private static readonly Regex PossibleHandPrefix = new(
             @"(?<![A-Za-z0-9_])[LR](?=[1-8]|[ABDE][1-8]|C)",
@@ -67,12 +73,41 @@ namespace MajdataPlay.Scenes.Airshift
                 throw new ArgumentNullException(nameof(fumen));
             }
 
-            var matches = NoteToken.Matches(fumen);
+            // One character only is replaced, preserving every source
+            // index used by the existing per-key ordinal binding.
+            var normalized = fumen.ToCharArray();
+            var parallelKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (Match pair in HandedParallelPair.Matches(fumen))
+            {
+                var first = pair.Groups["first"].Value;
+                var second = pair.Groups["second"].Value;
+                var start = pair.Groups["start"].Value;
+                if (first[0] == second[0] ||
+                    start != pair.Groups["endstart"].Value ||
+                    first.Substring(1) == second.Substring(1) ||
+                    first.IndexOf('w') >= 0 || second.IndexOf('w') >= 0 ||
+                    first.IndexOf('[') < 0 || second.IndexOf('[') < 0 ||
+                    !first.EndsWith("]", StringComparison.Ordinal) ||
+                    !second.EndsWith("]", StringComparison.Ordinal))
+                {
+                    throw new FormatException(
+                        "AIRSHIFT two-hand parallel SLIDE requires distinct full " +
+                        "paths from the same key, one L and one R: " + pair.Value);
+                }
+                var beat = fumen.LastIndexOf(',', pair.Index) + ":S:A" + start;
+                if (!parallelKeys.Add(beat))
+                {
+                    throw new FormatException("Only one parallel SLIDE pair per key and beat is supported.");
+                }
+                normalized[pair.Groups["first"].Index + pair.Groups["first"].Length] = '/';
+            }
+            var normalizedFumen = new string(normalized);
+            var matches = NoteToken.Matches(normalizedFumen);
             var validPrefixes = new HashSet<int>();
             var sourceCounts = new Dictionary<string, int>(StringComparer.Ordinal);
             var sameBeatNotes = new Dictionary<string, List<Match>>(StringComparer.Ordinal);
             var markers = new List<Marker>();
-            var output = new StringBuilder(fumen.Length);
+            var output = new StringBuilder(normalizedFumen.Length);
             var previous = 0;
 
             // Count every simple source TAP/TOUCH, including unprefixed notes.
@@ -82,7 +117,7 @@ namespace MajdataPlay.Scenes.Airshift
                 sourceCounts.TryGetValue(key, out var index);
                 sourceCounts[key] = index + 1;
 
-                var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
+                var beatKey = normalizedFumen.LastIndexOf(',', match.Index) + ":" + key;
                 if (!sameBeatNotes.TryGetValue(beatKey, out var beatNotes))
                 {
                     beatNotes = new List<Match>(2);
@@ -128,17 +163,19 @@ namespace MajdataPlay.Scenes.Airshift
                         "AIRSHIFT hand prefix supports standalone STAR, plain TOUCH or curved, turning or chained SLIDE: " + prefix + token);
                 }
 
-                var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
+                var beatKey = normalizedFumen.LastIndexOf(',', match.Index) + ":" + key;
                 var beatNotes = sameBeatNotes[beatKey];
                 // A strictly identical pair is the only same-beat/same-area
                 // duplicate that can be bound without ambiguous source identity.
                 if (beatNotes.Count > 1 &&
                     !IsOppositeHandStarPair(beatNotes) &&
-                    !IsOppositeHandTouchPair(beatNotes))
+                    !IsOppositeHandTouchPair(beatNotes) &&
+                    !(parallelKeys.Contains(beatKey) &&
+                      IsOppositeHandParallelSlidePair(beatNotes)))
                 {
                     throw new FormatException(
                         "AIRSHIFT same-beat overlapping notes require exactly one L and one R " +
-                        "of the same ordinary TOUCH or standalone STAR variant: " + key);
+                        "of an explicit STAR, TOUCH or two-hand parallel SLIDE pair: " + key);
                 }
 
                 validPrefixes.Add(match.Index);
@@ -149,27 +186,27 @@ namespace MajdataPlay.Scenes.Airshift
                     prefix == "L" ? AirshiftRequiredHand.Left : AirshiftRequiredHand.Right,
                     isStar,
                     isSlide));
-                output.Append(fumen, previous, match.Index - previous);
+                output.Append(normalizedFumen, previous, match.Index - previous);
                 output.Append(token);
                 previous = match.Index + match.Length;
             }
 
-            foreach (Match possible in PossibleHandPrefix.Matches(fumen))
+            foreach (Match possible in PossibleHandPrefix.Matches(normalizedFumen))
             {
                 if (!validPrefixes.Contains(possible.Index))
                 {
                     throw new FormatException(
                         "Unsupported AIRSHIFT hand prefix at chart character " + possible.Index +
-                        ". Supported: L/R + 1$/1$, ordinary TOUCH and non-WIFI SLIDE with duration; parallel branches excluded.");
+                        ". Supported: L/R + 1$/1$, ordinary TOUCH and non-WIFI SLIDE with duration; use L1-4[8:1]*R1-6[8:1] for a two-hand parallel pair.");
                 }
             }
 
             if (markers.Count == 0)
             {
-                return new Preprocessed(fumen, markers, sourceCounts);
+                return new Preprocessed(normalizedFumen, markers, sourceCounts);
             }
 
-            output.Append(fumen, previous, fumen.Length - previous);
+            output.Append(normalizedFumen, previous, normalizedFumen.Length - previous);
             return new Preprocessed(output.ToString(), markers, sourceCounts);
         }
 
@@ -224,6 +261,22 @@ namespace MajdataPlay.Scenes.Airshift
             var secondHand = notes[1].Groups["hand"].Value;
             return firstHand == "L" && secondHand == "R" ||
                    firstHand == "R" && secondHand == "L";
+        }
+
+        /// <summary>Only exactly two different complete opposite-hand branches.</summary>
+        private static bool IsOppositeHandParallelSlidePair(IReadOnlyList<Match> notes)
+        {
+            if (notes.Count != 2 ||
+                !notes[0].Groups["slide"].Success ||
+                !notes[1].Groups["slide"].Success)
+            {
+                return false;
+            }
+            var first = notes[0].Groups["hand"].Value;
+            var second = notes[1].Groups["hand"].Value;
+            return (first == "L" && second == "R" ||
+                    first == "R" && second == "L") &&
+                   notes[0].Groups["token"].Value != notes[1].Groups["token"].Value;
         }
 
         private static string GetSourceKey(Match match)
