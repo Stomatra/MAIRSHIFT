@@ -111,6 +111,47 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(star.sharedMaterial == _rig.BreakMaterial, Is.EqualTo((bool)testCase[5]));
         }
 
+
+        /// <summary>
+        /// WIFI's arrow lanes and all three moving guide STARs use
+        /// normal sprites and yellow EACH silhouettes in AIRSHIFT.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachWifi_UsesNormalSkinWithThreeOutlinedStars()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var wifi = CreateWifi(isEach: true);
+            yield return null;
+
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(yellow, Is.Not.Null);
+            var firstArrow = wifi.transform.GetChild(0).GetComponent<SpriteRenderer>();
+            Assert.That(firstArrow.sprite.name, Is.EqualTo("Wifi[0]"));
+            wifi.SetActive(true);
+
+            var arrowOutline = firstArrow.transform.Find("AIRSHIFT_EachYellowOutline");
+            Assert.That(arrowOutline, Is.Not.Null);
+            Assert.That(arrowOutline!.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(yellow));
+
+            for (var index = 0; index < 3; index++)
+            {
+                var follower = _rig.SlideStar(index).GetComponent<SpriteRenderer>();
+                Assert.That(follower.sprite.name, Is.EqualTo("Star"));
+                var layer = follower.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(layer, Is.Not.Null, "WIFI follower STAR " + index);
+                Assert.That(layer!.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(yellow));
+            }
+
+            wifi.SetActive(false);
+            Assert.That(arrowOutline.GetComponent<SpriteRenderer>().enabled, Is.False);
+            for (var index = 0; index < 3; index++)
+            {
+                var follower = _rig.SlideStar(index).GetComponent<SpriteRenderer>();
+                Assert.That(follower.transform.Find("AIRSHIFT_EachYellowOutline")
+                    .GetComponent<SpriteRenderer>().enabled, Is.False);
+            }
+        }
+
         /// <summary>Checks that the state captured for the slide inspector shows the three lanes of the wifi table.</summary>
         /// <returns>The test coroutine.</returns>
         [UnityTest]
