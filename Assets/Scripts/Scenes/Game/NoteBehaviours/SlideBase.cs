@@ -195,6 +195,15 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
         private void SyncSlideBarEachOutline(int index, SpriteRenderer source)
         {
+            // Keep the ordinary (overwhelming majority) SLIDEs allocation
+            // free; existing outlines still need to be disabled on reuse.
+            if (!ShowAirshiftSlideEach &&
+                (index >= _airshiftEachBarOutlines.Count ||
+                 _airshiftEachBarOutlines[index] is null))
+            {
+                return;
+            }
+
             while (_airshiftEachBarOutlines.Count <= index)
             {
                 _airshiftEachBarOutlines.Add(null);
@@ -212,6 +221,14 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         /// </summary>
         protected void SyncSlideStarEachOutlines()
         {
+            if (!ShowAirshiftSlideEach &&
+                _airshiftEachStarOutlines[0] is null &&
+                _airshiftEachStarOutlines[1] is null &&
+                _airshiftEachStarOutlines[2] is null)
+            {
+                return;
+            }
+
             var stars = StarRenderers.Span;
             for (var index = 0; index < stars.Length; index++)
             {
