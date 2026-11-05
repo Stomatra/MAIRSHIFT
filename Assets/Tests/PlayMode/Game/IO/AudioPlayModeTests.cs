@@ -51,6 +51,58 @@ namespace MajdataPlay.Tests.Game.IO.PlayMode
             PrivateMember.SetStaticProperty(typeof(MajEnv), nameof(MajEnv.Settings), _savedSettings);
         }
 
+        /// <summary>Windows paths with spaces and '+' must decode as valid file:/// URIs.</summary>
+        [UnityTest]
+        public IEnumerator UnitySample_CreateAsync_DecodesLocalWaveWithEscapedFilename()
+        {
+            return UniTask.ToCoroutine(async () =>
+            {
+                var path = Path.Combine(Application.temporaryCachePath,
+                    "mairshift audio + URI verification.wav");
+                var host = _objects.Create("LocalWaveAudioHost");
+
+                try
+                {
+                    // Tiny valid PCM WAV: mono 16 bit, 44100 Hz, 0.1 s silence.
+                    const int frames = 4410;
+                    using (var stream = File.Create(path))
+                    using (var writer = new BinaryWriter(stream))
+                    {
+                        writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+                        writer.Write(36 + frames * 2);
+                        writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt "));
+                        writer.Write(16);
+                        writer.Write((short)1); // PCM
+                        writer.Write((short)1); // mono
+                        writer.Write(44100);
+                        writer.Write(88200);
+                        writer.Write((short)2);
+                        writer.Write((short)16);
+                        writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+                        writer.Write(frames * 2);
+                        writer.Write(new byte[frames * 2]);
+                    }
+
+                    var manager = host.AddComponent<AudioManager>();
+                    var sample = await manager.LoadMusicAsync(path);
+                    try
+                    {
+                        Assert.That(sample.IsEmpty, Is.False,
+                            "The Unity backend must load valid local WAV without BASS.");
+                        Assert.That(sample.Length.TotalSeconds, Is.EqualTo(0.1d).Within(0.02d));
+                    }
+                    finally
+                    {
+                        await sample.DisposeAsync();
+                    }
+                }
+                finally
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+            });
+        }
+
         /// <summary>Checks the clip backed sample properties and transport controls.</summary>
         /// <returns>The test coroutine.</returns>
         [UnityTest]
