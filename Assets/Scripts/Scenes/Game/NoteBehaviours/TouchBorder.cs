@@ -100,7 +100,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             {
                 _twoRenderer.sprite = _break[0];
             }
-            else if (first.IsEach)
+            else if (first.IsEach && !MajEnv.Settings.Mod.AirshiftEnabled)
             {
                 _twoRenderer.sprite = _each[0];
             }
@@ -117,7 +117,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 {
                     _threeRenderer.sprite = _break[1];
                 }
-                else if (_second.IsEach)
+                else if (_second.IsEach && !MajEnv.Settings.Mod.AirshiftEnabled)
                 {
                     _threeRenderer.sprite = _each[1];
                 }

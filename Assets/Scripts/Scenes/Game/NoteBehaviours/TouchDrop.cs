@@ -39,6 +39,9 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         float _wholeDuration;
 
         readonly SpriteRenderer[] _fanRenderers = new SpriteRenderer[4];
+        readonly SpriteRenderer?[] _airshiftFanOutlines = new SpriteRenderer?[4];
+        SpriteRenderer? _airshiftPointOutline;
+        SpriteRenderer? _airshiftJustBorderOutline;
         readonly GameObject[] _fans = new GameObject[4];
         readonly Transform[] _fanTransforms = new Transform[4];
 
@@ -149,6 +152,22 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
             LoadSkin();
 
+            // Only source renderers enter the L/R overlap registry; these
+            // visual-only yellow layers follow each original renderer.
+            var showEach = ModInfo.AirshiftEnabled && IsEach;
+            for (var fanIndex = 0; fanIndex < _fanRenderers.Length; fanIndex++)
+            {
+                AirshiftEachOutline.Sync(
+                    ref _airshiftFanOutlines[fanIndex], _fanRenderers[fanIndex],
+                    showEach, _fanRenderers[fanIndex].color.a);
+            }
+            AirshiftEachOutline.Sync(
+                ref _airshiftPointOutline, _pointRenderer,
+                showEach, _pointRenderer.color.a);
+            AirshiftEachOutline.Sync(
+                ref _airshiftJustBorderOutline, _justBorderRenderer,
+                showEach, _justBorderRenderer.color.a);
+
             NoteHelper.Sorting.SetPosition(Transform, NoteHelper.GetTouchAreaPosition(SensorPos));
             //_pointObject.SetActive(false);
             //_justBorderObject.SetActive(false);
@@ -241,7 +260,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                     SetFansMaterial(BreakMaterial);
                     _pointRenderer.sprite = skin.Point_Break;
                 }
-                else if (IsEach)
+                else if (IsEach && !ModInfo.AirshiftEnabled)
                 {
                     SetFansSprite(skin.Each);
                     _pointRenderer.sprite = skin.Point_Each;
@@ -545,18 +564,24 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         }
         private void SetFanActive(bool state)
         {
-            for(var i = 0; i < _fanRenderers.Length; i++)
+            for (var i = 0; i < _fanRenderers.Length; i++)
             {
                 _fanRenderers[i].enabled = state;
+                AirshiftEachOutline.Sync(ref _airshiftFanOutlines[i], _fanRenderers[i],
+                    state && ModInfo.AirshiftEnabled && IsEach, _fanRenderers[i].color.a);
             }
         }
         private void SetPointActive(bool state)
         {
             _pointRenderer.enabled = state;
+            AirshiftEachOutline.Sync(ref _airshiftPointOutline, _pointRenderer,
+                state && ModInfo.AirshiftEnabled && IsEach, _pointRenderer.color.a);
         }
         private void SetJustBorderActive(bool state)
         {
             _justBorderRenderer.enabled = state;
+            AirshiftEachOutline.Sync(ref _airshiftJustBorderOutline, _justBorderRenderer,
+                state && ModInfo.AirshiftEnabled && IsEach, _justBorderRenderer.color.a);
         }
 
         private void SetFansPosition(in float distance)
@@ -579,7 +604,17 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             // Tint its RGB only, preserving that alpha and STANDARD behavior.
             var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
             var output = AirshiftNoteVisualPalette.Multiply(color, tint);
-            foreach (var fan in _fanRenderers) fan.color = output;
+            for (var i = 0; i < _fanRenderers.Length; i++)
+            {
+                _fanRenderers[i].color = output;
+                // Alpha follows the native fade, but yellow RGB never
+                // multiplies with the per-hand blue/red body tint.
+                var outline = _airshiftFanOutlines[i];
+                if (outline is not null)
+                {
+                    outline.color = new Color(1f, 1f, 1f, output.a);
+                }
+            }
         }
         private void SetFansSprite(Sprite sprite)
         {

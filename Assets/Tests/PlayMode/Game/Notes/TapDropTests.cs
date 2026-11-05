@@ -25,6 +25,80 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
     /// </summary>
     public class TapDropTests
     {
+        /// <summary>
+        /// AIRSHIFT Each keeps the normal STAR skin and adds a recyclable
+        /// yellow outline without touching blue/red body tint.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachStar_UsesNormalSkinWithYellowOutline()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var star = _rig.SpawnTap(GameplayRig.TapInfo(
+                isStar: true, isEach: true, requiredHand: AirshiftRequiredHand.Left));
+            yield return null;
+
+            var body = star.GetComponent<SpriteRenderer>();
+            var layer = star.transform.Find("AIRSHIFT_EachYellowOutline");
+            Assert.That(star.IsEach, Is.True);
+            Assert.That(body.sprite.name, Is.EqualTo("Star"));
+            Assert.That(layer, Is.Not.Null);
+            var outline = layer!.GetComponent<SpriteRenderer>();
+            Assert.That(outline.sprite, Is.SameAs(body.sprite));
+            Assert.That(outline.sharedMaterial,
+                Is.SameAs(Resources.Load<Material>("Airshift/EachSilhouette")));
+            Assert.That(layer.localScale.x, Is.GreaterThan(1f));
+            Assert.That(body.sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(body.color, Is.EqualTo(
+                AirshiftNoteVisualPalette.Multiply(
+                    _rig.TapTemplate.GetComponent<SpriteRenderer>().color,
+                    AirshiftNoteVisualPalette.Left)));
+        }
+
+        /// <summary>
+        /// The existing STAR half-split still owns both source renderers.
+        /// The yellow silhouettes use separate materials and do not alter
+        /// each partner's independently judged queue entry.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachOverlappingStars_KeepSplitAndYellowOutline()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(startPos: 1,
+                isStar: true, isEach: true, index: 0, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(startPos: 1,
+                isStar: true, isEach: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            var split = Resources.Load<Material>("AirshiftOverlaps/StarSplit");
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(split, Is.Not.Null);
+            Assert.That(yellow, Is.Not.Null);
+
+            foreach (var star in new[] { left, right })
+            {
+                Assert.That(star.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(split));
+                var outline = star.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(outline, Is.Not.Null);
+                Assert.That(outline!.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(yellow));
+                Assert.That(outline.GetComponent<SpriteRenderer>().sprite,
+                    Is.SameAs(star.GetComponent<SpriteRenderer>().sprite));
+            }
+            Assert.That(left.QueueInfo.Index, Is.Not.EqualTo(right.QueueInfo.Index));
+        }
+
+        /// <summary>Unmodified STANDARD Each STAR keeps the skin's own Each sprite.</summary>
+        [UnityTest]
+        public IEnumerator StandardEachStar_UsesOriginalSkinWithoutYellowOverlay()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var star = _rig.SpawnTap(GameplayRig.TapInfo(isStar: true, isEach: true));
+            yield return null;
+
+            Assert.That(star.GetComponent<SpriteRenderer>().sprite.name, Is.EqualTo("Star_Each"));
+            Assert.That(star.transform.Find("AIRSHIFT_EachYellowOutline"), Is.Null);
+        }
+
+
         /// <summary>The gameplay objects of the current test.</summary>
         private GameplayRig _rig = null!;
 
