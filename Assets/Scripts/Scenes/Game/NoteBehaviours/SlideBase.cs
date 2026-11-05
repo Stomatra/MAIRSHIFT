@@ -33,9 +33,6 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             required == AirshiftRequiredHand.Left && hand == HandId.Left ||
             required == AirshiftRequiredHand.Right && hand == HandId.Right;
 
-        // Only the AIRSHIFT WIFI note uses this distinct physical hand policy.
-        private readonly AirshiftWifiLaneHandPolicy _wifiHandPolicy = new();
-        protected void ResetAirshiftWifiHandPolicy() => _wifiHandPolicy.Reset();
         const int SLIDE_BAR_MODE_SET_ALPHA = 1;
         const int SLIDE_BAR_MODE_SET_MATERIAL = 2;
         const int SLIDE_BAR_MODE_SET_ALPHA_AND_MATERIAL = 3;
@@ -559,9 +556,12 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             bool pressed;
             if (wifiLane == 0 || wifiLane == 2)
             {
-                pressed = _wifiHandPolicy.IsOuterLanePressed(
+                // WIFI is always untagged; either real hand may sweep
+                // either outer path. Each path still has its own
+                // strictly ordered judge queue.
+                pressed = AirshiftWifiLaneHandPolicy.IsOuterLanePressed(
                     wifiLane, (AirshiftSensorArea)(int)area,
-                    (AirshiftSensorArea)(StartPos - 1), leftArea, rightArea);
+                    leftArea, rightArea);
             }
             else
             {

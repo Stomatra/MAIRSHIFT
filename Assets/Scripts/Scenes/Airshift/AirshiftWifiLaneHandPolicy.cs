@@ -1,57 +1,35 @@
+using System;
+
 namespace MajdataPlay.Scenes.Airshift
 {
     /// <summary>
-    /// WIFI's two outer tracks require two separate real hands. Either
-    /// physical hand may claim either outer track by entering its first
-    /// exclusive (non-start) sensor. The common start stays unclaimed.
+    /// Evaluates physical sensor contact for either outer WIFI lane.
+    /// Unlike the old two-hand ownership rule, a single hand may trace
+    /// both outer lanes. Each WIFI still owns three independent ordered
+    /// judge queues in SlideBase; this only decides whether a sensor is
+    /// currently touched, not whether its path is complete.
     /// </summary>
-    internal sealed class AirshiftWifiLaneHandPolicy
+    internal static class AirshiftWifiLaneHandPolicy
     {
-        private HandId? _lane0;
-        private HandId? _lane2;
-
-        internal HandId? Lane0Owner => _lane0;
-        internal HandId? Lane2Owner => _lane2;
-
-        internal void Reset()
-        {
-            _lane0 = null;
-            _lane2 = null;
-        }
-
-        internal bool IsOuterLanePressed(
-            int lane, AirshiftSensorArea target, AirshiftSensorArea start,
+        internal static bool IsOuterLanePressed(
+            int lane, AirshiftSensorArea target,
             AirshiftSensorArea leftArea, AirshiftSensorArea rightArea)
         {
             if (lane != 0 && lane != 2)
-                throw new System.ArgumentOutOfRangeException(nameof(lane));
+            {
+                throw new ArgumentOutOfRangeException(nameof(lane));
+            }
+
             if (target == AirshiftSensorArea.None)
+            {
                 return false;
+            }
 
-            bool leftMatches = leftArea == target;
-            bool rightMatches = rightArea == target;
-
-            // All lanes share the first sensor. Do not claim at the start.
-            if (target == start)
-                return leftMatches || rightMatches;
-
-            var owner = lane == 0 ? _lane0 : _lane2;
-            var otherOwner = lane == 0 ? _lane2 : _lane0;
-
-            if (owner.HasValue)
-                return owner.Value == HandId.Left ? leftMatches : rightMatches;
-
-            // Both hands in the same sensor are not an unambiguous claim.
-            if (leftMatches == rightMatches)
-                return false;
-
-            var candidate = leftMatches ? HandId.Left : HandId.Right;
-            if (otherOwner.HasValue && otherOwner.Value == candidate)
-                return false;
-
-            if (lane == 0) _lane0 = candidate;
-            else _lane2 = candidate;
-            return true;
+            // Keep the same area matching logic used by untagged
+            // AIRSHIFT slides, without claiming a lane or a hand.
+            // This also permits two simultaneous WIFI notes to be
+            // swept independently by just two physical hands.
+            return leftArea == target || rightArea == target;
         }
     }
 }

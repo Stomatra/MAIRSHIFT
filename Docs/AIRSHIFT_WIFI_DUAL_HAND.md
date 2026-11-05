@@ -1,3 +1,10 @@
+# Historical WIFI dual-hand policy — PR #14 (superseded by PR #19)
+
+> The mandatory two-hand outer-lane ownership documented below was
+> **removed in PR #19** after identifying charts with two simultaneous
+> WIFI notes. It is historical design documentation, not the
+> current gameplay rule. See `AIRSHIFT_WIFI_ANY_HAND.md`.
+
 # AIRSHIFT WIFI dual-hand policy — PR #14 draft
 
 WIFI remains `1w5[8:1]` (no L/R prefix). It is a three-lane,
