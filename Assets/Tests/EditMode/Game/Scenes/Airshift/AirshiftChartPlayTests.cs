@@ -49,8 +49,8 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
         /// <summary>One blue and one red identical STAR may share one beat and key.</summary>
         [TestCase("(120){4}L1$/R1$,E", "(120){4}1$/1$,E")]
         [TestCase("(120){4}R1$/L1$,E", "(120){4}1$/1$,E")]
-        [TestCase("(120){4}L1$/R1$,E", "(120){4}1$/1$,E")]
-        [TestCase("(120){4}R8$/L8$,E", "(120){4}8$/8$,E")]
+        [TestCase("(120){4}L1$$/R1$$,E", "(120){4}1$$/1$$,E")]
+        [TestCase("(120){4}R8$$/L8$$,E", "(120){4}8$$/8$$,E")]
         public void GameSyntax_SamePositionOppositeHandStars_MapBothOriginalNotes(string source, string stripped)
         {
             var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
@@ -77,8 +77,8 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
         /// <summary>Ambiguous same-beat duplicates still fail before parser binding.</summary>
         [TestCase("(120){4}L1$/L1$,E")]
         [TestCase("(120){4}R1$/R1$,E")]
-        [TestCase("(120){4}L1$/R1$,E")]
-        [TestCase("(120){4}L1$/R1$,E")]
+        [TestCase("(120){4}L1$/R1$$,E")]
+        [TestCase("(120){4}L1$$/R1$,E")]
         [TestCase("(120){4}L1$/1$,E")]
         [TestCase("(120){4}L1$/R1$/1$,E")]
         [TestCase("(120){4}LA1/RA1,E")]
