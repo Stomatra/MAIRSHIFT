@@ -491,12 +491,12 @@ namespace MajdataPlay.Scenes.Game
 
                     if (airshiftTouchCandidates is not null)
                     {
-                        for (var i = 0; i < airshiftTouchCandidates.Count; i++)
+                        for (var touchIndex = 0; touchIndex < airshiftTouchCandidates.Count; touchIndex++)
                         {
-                            var first = airshiftTouchCandidates[i];
-                            for (var j = i + 1; j < airshiftTouchCandidates.Count; j++)
+                            var first = airshiftTouchCandidates[touchIndex];
+                            for (var partnerIndex = touchIndex + 1; partnerIndex < airshiftTouchCandidates.Count; partnerIndex++)
                             {
-                                var second = airshiftTouchCandidates[j];
+                                var second = airshiftTouchCandidates[partnerIndex];
                                 if (first.SensorPos == second.SensorPos &&
                                     first.Timing == second.Timing &&
                                     first.Speed == second.Speed &&
