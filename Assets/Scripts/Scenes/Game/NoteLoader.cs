@@ -579,6 +579,15 @@ namespace MajdataPlay.Scenes.Game
                             {
                                 break;
                             }
+                            // AIRSHIFT STARs use yellow silhouette outlines
+                            // rather than their legacy yellow connector line.
+                            // Keep original TAP/HOLD and STANDARD Each lines.
+                            if (_gpManager is { IsAirshiftMode: true } &&
+                                (eachNotes[x] is TapPoolingInfo { IsStar: true } ||
+                                 eachNotes[x + 1] is TapPoolingInfo { IsStar: true }))
+                            {
+                                continue;
+                            }
                             var eachLinePoolingInfo = CreateEachLine(timing, eachNotes[x]!, eachNotes[x + 1]!);
                             if (eachLinePoolingInfo is not null)
                             {
