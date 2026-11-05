@@ -43,7 +43,63 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             Assert.Throws<FormatException>(() =>
                 AirshiftHandedSimaiSyntax.Preprocess("(120){4}R1h[4:1],E"));
             Assert.Throws<FormatException>(() =>
-                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/R1$,E"));
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/L1$,E"));
+        }
+
+        /// <summary>One blue and one red identical STAR may share one beat and key.</summary>
+        [TestCase("(120){4}L1$/R1$,E", "(120){4}1$/1$,E")]
+        [TestCase("(120){4}R1$/L1$,E", "(120){4}1$/1$,E")]
+        [TestCase("(120){4}L1$$/R1$$,E", "(120){4}1$$/1$$,E")]
+        [TestCase("(120){4}R8$$/L8$$,E", "(120){4}8$$/8$$,E")]
+        public void GameSyntax_SamePositionOppositeHandStars_MapBothOriginalNotes(string source, string stripped)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText, Is.EqualTo(stripped));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(2));
+
+            var parsed = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(parsed, syntax);
+            var stars = FlattenNotes(parsed).Where(n => n.Type == SimaiNoteType.Tap).ToArray();
+
+            Assert.That(stars, Has.Length.EqualTo(2),
+                "MajSimai must preserve both coincident STAR objects for independent judging.");
+            Assert.That(stars[0], Is.Not.SameAs(stars[1]));
+            Assert.That(stars.All(n => n.IsForceStar), Is.True);
+            Assert.That(stars[0].StartPosition, Is.EqualTo(stars[1].StartPosition));
+            Assert.That(bindings.Count, Is.EqualTo(2));
+            Assert.That(bindings.Values, Is.EquivalentTo(new[]
+            {
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right,
+            }));
+        }
+
+        /// <summary>Ambiguous same-beat duplicates still fail before parser binding.</summary>
+        [TestCase("(120){4}L1$/L1$,E")]
+        [TestCase("(120){4}R1$/R1$,E")]
+        [TestCase("(120){4}L1$/R1$$,E")]
+        [TestCase("(120){4}L1$$/R1$,E")]
+        [TestCase("(120){4}L1$/1$,E")]
+        [TestCase("(120){4}L1$/R1$/1$,E")]
+        [TestCase("(120){4}LA1/RA1,E")]
+        public void GameSyntax_RejectsAmbiguousSameBeatSameAreaNotes(string source)
+        {
+            Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(source));
+        }
+
+        /// <summary>Global ordinal mapping remains stable across an earlier ordinary STAR.</summary>
+        [Test]
+        public void GameSyntax_OverlappingStarPairAfterEarlierUnmarkedStar()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}1$,L1$/R1$,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            var notes = FlattenNotes(chart).Where(n => n.Type == SimaiNoteType.Tap).ToArray();
+
+            Assert.That(notes, Has.Length.EqualTo(3));
+            Assert.That(bindings.ContainsKey(notes[0]), Is.False);
+            Assert.That(bindings[notes[1]], Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[notes[2]], Is.EqualTo(AirshiftRequiredHand.Right));
         }
 
         [Test]

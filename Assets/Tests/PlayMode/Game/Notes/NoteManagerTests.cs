@@ -243,6 +243,69 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.DoesNotThrow(() => Manager.NextNote(new TapQueueInfo() { Index = 0, KeyIndex = 9 }));
         }
 
+        /// <summary>The second hand may finish first without unlocking notes after the pair.</summary>
+        [Test]
+        public void AirshiftStarPair_RightQueueMemberCanFinishBeforeLeft()
+        {
+            var left = new TapQueueInfo() { KeyIndex = 3, Index = 0 };
+            var right = new TapQueueInfo() { KeyIndex = 3, Index = 1 };
+            var next = new TapQueueInfo() { KeyIndex = 3, Index = 2 };
+            Manager.RegisterAirshiftStarPair(left, right);
+
+            Assert.That(Manager.IsCurrentNoteJudgeable(left), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(right), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.False);
+
+            Manager.NextNote(right);
+            Assert.That(Manager.IsCurrentNoteJudgeable(left), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.False);
+
+            Manager.NextNote(left);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.True);
+        }
+
+        /// <summary>The original FIFO sequence resumes after first-hand then second-hand resolution.</summary>
+        [Test]
+        public void AirshiftStarPair_LeftQueueMemberCanFinishBeforeRight()
+        {
+            var left = new TapQueueInfo() { KeyIndex = 4, Index = 0 };
+            var right = new TapQueueInfo() { KeyIndex = 4, Index = 1 };
+            var next = new TapQueueInfo() { KeyIndex = 4, Index = 2 };
+            Manager.RegisterAirshiftStarPair(left, right);
+
+            Manager.NextNote(left);
+            Assert.That(Manager.IsCurrentNoteJudgeable(right), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.False);
+
+            Manager.NextNote(right);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.True);
+        }
+
+        /// <summary>Pair state must be discarded when another chart resets the counters.</summary>
+        [Test]
+        public void AirshiftStarPair_ResetCounterRestoresOrdinaryQueueGating()
+        {
+            var first = new TapQueueInfo() { KeyIndex = 5, Index = 0 };
+            var second = new TapQueueInfo() { KeyIndex = 5, Index = 1 };
+            Manager.RegisterAirshiftStarPair(first, second);
+            Assert.That(Manager.IsCurrentNoteJudgeable(second), Is.True);
+
+            Manager.ResetCounter();
+            Assert.That(Manager.IsCurrentNoteJudgeable(second), Is.False);
+            Assert.That(Manager.IsCurrentNoteJudgeable(first), Is.True);
+        }
+
+        /// <summary>Invalid pairs cannot accidentally relax STANDARD FIFO rules.</summary>
+        [Test]
+        public void AirshiftStarPair_RejectsNonAdjacentOrDifferentKeys()
+        {
+            var first = new TapQueueInfo() { KeyIndex = 1, Index = 0 };
+            Assert.Throws<System.ArgumentException>(() => Manager.RegisterAirshiftStarPair(
+                first, new TapQueueInfo() { KeyIndex = 2, Index = 1 }));
+            Assert.Throws<System.ArgumentException>(() => Manager.RegisterAirshiftStarPair(
+                first, new TapQueueInfo() { KeyIndex = 1, Index = 2 }));
+        }
+
         /// <summary>Checks the touch queue index bookkeeping, including sensors outside the panel.</summary>
         [Test]
         public void TouchQueue_AdvancesPerSensor()

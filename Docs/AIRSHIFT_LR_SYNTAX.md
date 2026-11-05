@@ -109,15 +109,41 @@ current chart preprocessor. Adding that syntax is a separate gameplay change.
 - Supported new tokens are `L/R + 1$`, `1$$` or basic TOUCH such as `LA1`,
   `RB3`, `LC`. Unprefixed notes retain ordinary Simai semantics.
 - No handed SLIDE head (`L1-5[8:1]`), HOLD, TOUCH HOLD, or MINE yet.
-- Hand-marked identical notes in the same beat such as `L1$/R1$` are
-  rejected pending stable same-position event identity mapping. Different
-  positions in the same beat are supported.
+- Same-position/same-beat **opposite-hand standalone STAR pairs** are now
+  permitted by the stacked overlap PR: `L1$/R1$`, `R1$/L1$`, and matching
+  `L1$$/R1$$`. Only exactly two **identical STAR variants**, one L and
+  one R, qualify. These become two independently judged notes at one key.
+  The game's queue manager admits either hand first and holds later notes
+  until both notes finish.
+- Same-hand twins, mixed `$`/`$$` twins, three or more copies, and
+  same-position duplicated TOUCH remain unsupported and are rejected.
+  Different positions in the same beat continue to work.
 - With L/R tags, **Game Mirror must be Off** in v1. Rotation and random
   placement need explicit mapping verification before enabling mirror.
 - Complex unmarked slide-head mixtures sharing the same position as handed
   stars may be rejected if source/parsed note counts differ.
 - STANDARD does not parse L/R tokens: choose an AIRSHIFT-only chart when
   using prefixes; an ordinary Simai chart remains playable in both modes.
+
+## Dependency and pairing verification
+
+This overlap extension is based on PR #5, **not** the public `main`.
+It must be reviewed and tested alongside that unmerged L/R parser.
+PR #8 provides the independent two-color split shader but is not included
+in this parser branch; testing syntax and judging does not prove that split
+visuals render. Integrate only after both branches pass their targeted tests.
+
+Additional tests for this extension:
+- EditMode `AirshiftChartPlayTests`: duplicate parsing, identity mapping,
+  and ambiguous input rejection.
+- EditMode `NoteLoaderTests`: two distinct `TapPoolingInfo` records
+  and per-key queue indexes from the existing Game loader.
+- PlayMode `NoteManagerTests`: right-first, left-first, later-note blocking,
+  reset and invalid pairing.
+- Real Game scene: simultaneous left/right input at a single position,
+  both orders; one-hand-only and miss cases; next notes must remain blocked
+  until both STARs resolve. STANDARD sequential notes must remain unchanged.
+- Android PlayMode and actual controller order still need confirmation.
 
 ## Before merging
 

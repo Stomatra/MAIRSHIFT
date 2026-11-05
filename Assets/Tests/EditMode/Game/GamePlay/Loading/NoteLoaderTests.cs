@@ -234,6 +234,31 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
             Assert.That(sawUnmarkedTouch, Is.True);
         }
 
+        /// <summary>Two co-located STARs keep distinct queue slots and their handed pool metadata.</summary>
+        [Test]
+        public void AirshiftHandedChart_SameAreaStarsReachSeparateOriginalTapPools()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/R1$,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            _loader.HandBindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+
+            var firstTiming = chart.NoteTimings[0];
+            var notes = firstTiming.Notes;
+            Assert.That(notes, Has.Length.EqualTo(2));
+            var first = Invoke<TapPoolingInfo>("CreateTap", notes[0], firstTiming);
+            var second = Invoke<TapPoolingInfo>("CreateTap", notes[1], firstTiming);
+
+            Assert.That(first.IsStar && second.IsStar, Is.True);
+            Assert.That(first.StartPos, Is.EqualTo(second.StartPos));
+            Assert.That(first.Timing, Is.EqualTo(second.Timing));
+            Assert.That(first.Speed, Is.EqualTo(second.Speed));
+            Assert.That(first.RotateSpeed, Is.EqualTo(second.RotateSpeed));
+            Assert.That(first.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(second.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(first.QueueInfo.Index, Is.EqualTo(0L));
+            Assert.That(second.QueueInfo.Index, Is.EqualTo(1L));
+        }
+
         /// <summary>STANDARD has no hand tag map and retains Any on the same pooled note types.</summary>
         [Test]
         public void StandardChart_WithoutBindingsUsesAnyHandForStarAndTouch()

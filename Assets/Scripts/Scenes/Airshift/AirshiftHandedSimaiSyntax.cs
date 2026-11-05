@@ -68,7 +68,7 @@ namespace MajdataPlay.Scenes.Airshift
             var matches = NoteToken.Matches(fumen);
             var validPrefixes = new HashSet<int>();
             var sourceCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-            var sameBeatCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var sameBeatNotes = new Dictionary<string, List<Match>>(StringComparer.Ordinal);
             var markers = new List<Marker>();
             var output = new StringBuilder(fumen.Length);
             var previous = 0;
@@ -81,8 +81,12 @@ namespace MajdataPlay.Scenes.Airshift
                 sourceCounts[key] = index + 1;
 
                 var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
-                sameBeatCounts.TryGetValue(beatKey, out var beatCount);
-                sameBeatCounts[beatKey] = beatCount + 1;
+                if (!sameBeatNotes.TryGetValue(beatKey, out var beatNotes))
+                {
+                    beatNotes = new List<Match>(2);
+                    sameBeatNotes.Add(beatKey, beatNotes);
+                }
+                beatNotes.Add(match);
             }
 
             var ordinals = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -110,10 +114,14 @@ namespace MajdataPlay.Scenes.Airshift
                 }
 
                 var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
-                if (sameBeatCounts[beatKey] != 1)
+                var beatNotes = sameBeatNotes[beatKey];
+                // A strictly identical pair is the only same-beat/same-area
+                // duplicate that can be bound without ambiguous source identity.
+                if (beatNotes.Count > 1 && !IsOppositeHandStarPair(beatNotes))
                 {
                     throw new FormatException(
-                        "AIRSHIFT cannot safely match multiple notes at the same area in one beat: " + key);
+                        "AIRSHIFT same-beat overlapping notes require exactly one L and one R " +
+                        "standalone STAR of the same variant: " + key);
                 }
 
                 validPrefixes.Add(match.Index);
@@ -145,6 +153,29 @@ namespace MajdataPlay.Scenes.Airshift
 
             output.Append(fumen, previous, fumen.Length - previous);
             return new Preprocessed(output.ToString(), markers, sourceCounts);
+        }
+
+        /// <summary>
+        /// Only two identical STAR tokens with opposite hand prefixes may share
+        /// an exact key and beat. The parser can then assign either identical
+        /// STAR identity to the L/R side without altering musical semantics.
+        /// </summary>
+        /// <param name="notes">All simple notes at one source key within one beat.</param>
+        /// <returns>True only for an unambiguous left/right standalone STAR pair.</returns>
+        private static bool IsOppositeHandStarPair(IReadOnlyList<Match> notes)
+        {
+            if (notes.Count != 2 ||
+                !notes[0].Groups["star"].Success ||
+                !notes[1].Groups["star"].Success ||
+                notes[0].Groups["token"].Value != notes[1].Groups["token"].Value)
+            {
+                return false;
+            }
+
+            var first = notes[0].Groups["hand"].Value;
+            var second = notes[1].Groups["hand"].Value;
+            return first == "L" && second == "R" ||
+                   first == "R" && second == "L";
         }
 
         private static string GetSourceKey(Match match)
