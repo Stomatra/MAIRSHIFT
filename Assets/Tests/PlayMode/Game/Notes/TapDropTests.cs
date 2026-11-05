@@ -255,6 +255,31 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
                     _rig.TapTemplate.GetComponent<SpriteRenderer>().color, AirshiftNoteVisualPalette.Right)));
         }
 
+        /// <summary>Three collocated STARs do not pair ambiguously; removing the third permits pairing.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftOverlappingStars_RequireExactlyTwoOppositeHands()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 5, isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 5, isStar: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            var extra = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 5, isStar: true, index: 2, requiredHand: AirshiftRequiredHand.Left));
+            yield return null;
+
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(extra.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+
+            UnityEngine.Object.Destroy(extra.gameObject);
+            yield return null;
+
+            var material = Resources.Load<Material>("AirshiftOverlaps/StarSplit");
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(material));
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(material));
+        }
+
         /// <summary>Two opposite-hand annotations must not alter the STANDARD renderer.</summary>
         [UnityTest]
         public IEnumerator StandardOverlappingStars_DoNotUseSplitMaterial()
