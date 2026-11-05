@@ -467,18 +467,34 @@ namespace MajdataPlay.Scenes.List
             }
         }
         /// <summary>
-        /// Routes AIRSHIFT into its independent local song selector rather than
-        /// the legacy STANDARD Game scene. Only that independent route parses
-        /// L/R-prefixed STAR and TOUCH chart tokens.
+        /// Routes the selected play style to its independently owned gameplay scene.
         /// </summary>
         private void TryEnterGame()
         {
             if (MajEnv.Settings.Mod.AirshiftEnabled)
             {
-                _cts.Cancel();
-                _pressTime = 0;
-                _isExited = true;
-                MajInstances.SceneSwitcher.SwitchScene(MajScenes.AirshiftList, false);
+        #if UNITY_EDITOR
+                // Editor-only AIRSHIFT integration test.
+                // Never launch if the STANDARD score guard is inactive.
+                if (!MajEnv.Settings.Mod.IsAnyModActive())
+                {
+                    Debug.LogError(
+                        "[AIRSHIFT] 成绩保存保护未启用，拒绝进入测试。"
+                    );
+                    return;
+                }
+
+                Debug.LogWarning(
+                    "[AIRSHIFT] Unity Editor 测试模式：仅验证 TAP 输入，" +
+                    "其他音符尚未适配，不能作为正式成绩。"
+                );
+
+                EnterGame();
+        #else
+                Debug.LogWarning(
+                    "[AIRSHIFT] 判定系统和成绩隔离尚未完成，暂时禁止启动。"
+                );
+        #endif
                 return;
             }
 
