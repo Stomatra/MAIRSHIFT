@@ -224,6 +224,32 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(input));
         }
 
+        /// <summary>
+        /// High-density charts may contain two separate WIFI slides on
+        /// the same beat; neither needs an L/R source prefix or exclusive
+        /// ownership of both hands. Both must survive preprocessing
+        /// and parsing as distinct full-path notes.
+        /// </summary>
+        [TestCase("(120){4}1w5[8:1]/5w1[8:1],E")]
+        [TestCase("(120){4}1w5[8:1]/3w7[8:1],E")]
+        public void GameSyntax_TwoConcurrentWifisPreserveBothFullPaths(string input)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(input);
+            Assert.That(syntax.SimaiText, Is.EqualTo(input));
+            Assert.That(syntax.Markers, Is.Empty);
+
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart)
+                .Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(slides, Has.Length.EqualTo(2));
+            Assert.That(slides[0], Is.Not.SameAs(slides[1]));
+            Assert.That(slides[0].StartPosition,
+                Is.Not.EqualTo(slides[1].StartPosition));
+            Assert.That(slides.All(n => n.RawContent.Contains("w")), Is.True);
+            Assert.That(AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax),
+                Is.Empty);
+        }
+
         /// <summary>Ordinary unprefixed WIFI charts still reach MajSimai untouched.</summary>
         [Test]
         public void GameSyntax_OrdinaryWifiRemainsUnchanged()
