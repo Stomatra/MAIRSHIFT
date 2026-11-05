@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using MajdataPlay.Game.Notes;
 using MajdataPlay.IO;
@@ -9,6 +10,7 @@ using MajdataPlay.Scenes.Game.Notes.Behaviours;
 using MajdataPlay.Scenes.Game.Utils;
 using MajdataPlay.Settings;
 using MajdataPlay.Tests;
+using MajSimai;
 using MajdataPlay.Tests.Game.Notes.PlayMode.Support;
 using NUnit.Framework;
 using UnityEngine;
@@ -185,6 +187,161 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             yield return null;
 
             Assert.That(standardStar.GetComponent<SpriteRenderer>().color, Is.EqualTo(originalColor));
+        }
+
+
+
+        /// <summary>
+        /// Bridges the AIRSHIFT fumen preprocessor and the STAR visual presentation:
+        /// two identically placed L/R notes remain separate sprites with split halves.
+        /// Separate NoteLoader and NoteManager suites verify pool and hit ordering.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftChartPair_HandBindingsProduceSplitStarRenderers()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/R1$,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(chart.NoteTimings[0].Notes, Has.Length.EqualTo(2));
+            var notes = chart.NoteTimings[0].Notes;
+            Assert.That(bindings.Count, Is.EqualTo(2));
+            Assert.That(bindings[notes[0]], Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[notes[1]], Is.EqualTo(AirshiftRequiredHand.Right));
+
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: notes[0].StartPosition,
+                timing: (float)chart.NoteTimings[0].Timing,
+                isStar: notes[0].IsForceStar,
+                index: 0,
+                requiredHand: bindings[notes[0]]));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: notes[1].StartPosition,
+                timing: (float)chart.NoteTimings[0].Timing,
+                isStar: notes[1].IsForceStar,
+                index: 1,
+                requiredHand: bindings[notes[1]]));
+            yield return null;
+
+            Assert.That(left, Is.Not.SameAs(right));
+            var split = Resources.Load<Material>("AirshiftOverlaps/StarSplit");
+            Assert.That(split, Is.Not.Null);
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(split));
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(split));
+
+            var leftProperties = new MaterialPropertyBlock();
+            var rightProperties = new MaterialPropertyBlock();
+            left.GetComponent<SpriteRenderer>().GetPropertyBlock(leftProperties);
+            right.GetComponent<SpriteRenderer>().GetPropertyBlock(rightProperties);
+            Assert.That(leftProperties.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(-1f));
+            Assert.That(rightProperties.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(1f));
+        }
+
+        /// <summary>Two perfectly coincident opposite-hand STAR bodies render as complementary halves.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftOverlappingStars_UseHalfMaterialsAndIndependentSides()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 3, timing: 1f, isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 3, timing: 1f, isStar: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            var material = Resources.Load<Material>("AirshiftOverlaps/StarSplit");
+            Assert.That(material, Is.Not.Null);
+            var leftRenderer = left.GetComponent<SpriteRenderer>();
+            var rightRenderer = right.GetComponent<SpriteRenderer>();
+            Assert.That(leftRenderer.sharedMaterial, Is.SameAs(material));
+            Assert.That(rightRenderer.sharedMaterial, Is.SameAs(material));
+            var leftProperties = new MaterialPropertyBlock();
+            var rightProperties = new MaterialPropertyBlock();
+            leftRenderer.GetPropertyBlock(leftProperties);
+            rightRenderer.GetPropertyBlock(rightProperties);
+            Assert.That(leftProperties.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(-1f));
+            Assert.That(rightProperties.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(1f));
+            Assert.That(left.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(right.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
+        /// <summary>Only exact overlap qualifies; nearby notes and STANDARD are unchanged.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftOverlappingStars_RequireSameTimeAndPosition()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 1, timing: 1f, isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var later = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 1, timing: 1.02f, isStar: true, requiredHand: AirshiftRequiredHand.Right));
+            var elsewhere = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 2, timing: 1f, isStar: true, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(later.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(elsewhere.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+        }
+
+        /// <summary>If either half leaves the pool, its partner returns to a full single-color STAR.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftOverlappingStars_RestorePartnerOnDestruction()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 4, timing: 1f, isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 4, timing: 1f, isStar: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(Resources.Load<Material>("AirshiftOverlaps/StarSplit")));
+            UnityEngine.Object.Destroy(left.gameObject);
+            yield return null;
+
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(right.GetComponent<SpriteRenderer>().color,
+                Is.EqualTo(AirshiftNoteVisualPalette.Multiply(
+                    _rig.TapTemplate.GetComponent<SpriteRenderer>().color, AirshiftNoteVisualPalette.Right)));
+        }
+
+        /// <summary>Three collocated STARs do not pair ambiguously; removing the third permits pairing.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftOverlappingStars_RequireExactlyTwoOppositeHands()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 5, isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 5, isStar: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            var extra = _rig.SpawnTap(GameplayRig.TapInfo(
+                startPos: 5, isStar: true, index: 2, requiredHand: AirshiftRequiredHand.Left));
+            yield return null;
+
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(extra.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+
+            UnityEngine.Object.Destroy(extra.gameObject);
+            yield return null;
+
+            var material = Resources.Load<Material>("AirshiftOverlaps/StarSplit");
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(material));
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(material));
+        }
+
+        /// <summary>Two opposite-hand annotations must not alter the STANDARD renderer.</summary>
+        [UnityTest]
+        public IEnumerator StandardOverlappingStars_DoNotUseSplitMaterial()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var left = _rig.SpawnTap(GameplayRig.TapInfo(
+                isStar: true, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTap(GameplayRig.TapInfo(
+                isStar: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            Assert.That(left.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(right.GetComponent<SpriteRenderer>().sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
         }
 
         /// <summary>Checks the approach animation from the hidden state through scaling to running.</summary>
