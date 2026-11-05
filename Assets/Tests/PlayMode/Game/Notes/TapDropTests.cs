@@ -48,7 +48,10 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
                 Is.SameAs(Resources.Load<Material>("Airshift/EachSilhouette")));
             Assert.That(layer.localScale.x, Is.GreaterThan(1f));
             Assert.That(body.sharedMaterial, Is.SameAs(_rig.DefaultMaterial));
-            Assert.That(body.color.b, Is.EqualTo(AirshiftNoteVisualPalette.Left.b));
+            Assert.That(body.color, Is.EqualTo(
+                AirshiftNoteVisualPalette.Multiply(
+                    _rig.TapTemplate.GetComponent<SpriteRenderer>().color,
+                    AirshiftNoteVisualPalette.Left)));
         }
 
         /// <summary>
