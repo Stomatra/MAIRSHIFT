@@ -65,16 +65,40 @@ Current implementation (from PR #3):
 - Tint is per-note renderer state, reset on pooled-note initialization, and
   never modifies source PNGs, shared Sprite objects, or shared materials.
 
-**Caveat:** current `SpriteRenderer.color` multiplies the image's original RGB
-by the hand color. This works well on white/light neutral skins but **cannot
-guarantee recognizable blue/red** for an arbitrary strongly colored or dark
-skin. A follow-up visual pass should offer:
-1. Default palette-recolor shader, based on the source sprite's luminance and
-   alpha, retaining texture highlights/shadows but enforcing hand hue.
-2. Optional left/right STAR and TOUCH skin overrides, when a skin author
-   supplies dedicated assets. Missing overrides fall back to runtime recolor.
-3. Fallback to existing renderer RGB multiplication until the shader and skin
-   override path are verified in Unity's MajRenderPipeline.
+**Deliberate palette rule:** multiplying the imported skin's RGB toward
+left-blue or right-red is the entire requirement. There is NO requirement to
+make the result pure blue or pure red. A blue source may become dark blue when
+left-tinted, or even greenish when right-tinted. That is expected. Preserve the
+original skin artwork, texture, materials and transparency; do not rewrite it
+to a fixed palette.
+
+### AIRSHIFT multi-note (Each) presentation — planned visual follow-up
+
+The AIRSHIFT mode should use one consistent rule for ALL STAR and TOUCH notes,
+regardless of whether they have L/R hand prefixes:
+
+- Ordinary single note: render the current custom skin normally, and apply
+  L/R tint if required.
+- Simultaneous multi-note (existing `IsEach` flag): render the regular
+  STAR/TOUCH *body* variant rather than the imported skin's `Each` variant.
+  In particular, use STAR `Normal` / `Double` as appropriate instead of
+  `Each` / `EachDouble`; use TOUCH `Normal` and `Point_Normal` instead
+  of `Each` and `Point_Each`.
+- The simultaneous-note cue is a **separate yellow silhouette border** around
+  the current STAR/TOUCH graphic, on top of whichever original skin and hand
+  tint is in use. The border must not recolor the note's interior.
+- Do not change the `IsEach` gameplay flag, note time, judgment, score, or
+  simultaneous grouping. Only suppress its legacy body/guide/ex-effect visual
+  hint on STAR and TOUCH. Keep special BREAK/MINE/EX behavior intact.
+- STANDARD must retain all original Each sprites and appearance. Other note
+  families (such as TAP or HOLD) are outside this STAR/TOUCH-only policy.
+- Border follows rotation, scaling, pool reuse and TOUCH fan fade/position
+  animation. It should be constructed from the current skin's sprite alpha
+  so no dedicated red/blue/Each texture is required.
+
+This is **a design requirement, not a feature already implemented** by PR #5;
+the border renderer and the Each-sprite replacement need separate Unity
+implementation and PlayMode validation.
 
 Slide-head STARs use the same general STAR visual mechanism; **L/R-prefixed
 SLIDE syntax is not yet supported**, so they cannot be hand-tagged by the
