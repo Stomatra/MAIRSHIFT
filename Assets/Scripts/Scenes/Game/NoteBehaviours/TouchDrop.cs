@@ -39,6 +39,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         float _wholeDuration;
 
         readonly SpriteRenderer[] _fanRenderers = new SpriteRenderer[4];
+        readonly SpriteRenderer?[] _airshiftFanOutlines = new SpriteRenderer?[4];
+        SpriteRenderer? _airshiftPointOutline;
         readonly GameObject[] _fans = new GameObject[4];
         readonly Transform[] _fanTransforms = new Transform[4];
 
@@ -147,6 +149,14 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             _displayDuration = 0.2f * _wholeDuration;
 
             LoadSkin();
+            var showEach = ModInfo.AirshiftEnabled && IsEach;
+            for (var i = 0; i < _fanRenderers.Length; i++)
+            {
+                AirshiftEachOutline.Sync(
+                    ref _airshiftFanOutlines[i], _fanRenderers[i],
+                    showEach, _fanRenderers[i].color.a);
+            }
+            AirshiftEachOutline.Sync(ref _airshiftPointOutline, _pointRenderer, showEach);
 
             NoteHelper.Sorting.SetPosition(Transform, NoteHelper.GetTouchAreaPosition(SensorPos));
             //_pointObject.SetActive(false);
@@ -224,7 +234,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                     SetFansMaterial(BreakMaterial);
                     _pointRenderer.sprite = skin.Point_Break;
                 }
-                else if (IsEach)
+                else if (IsEach && !ModInfo.AirshiftEnabled)
                 {
                     SetFansSprite(skin.Each);
                     _pointRenderer.sprite = skin.Point_Each;
@@ -528,14 +538,22 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         }
         private void SetFanActive(bool state)
         {
-            for(var i = 0; i < _fanRenderers.Length; i++)
+            for (var i = 0; i < _fanRenderers.Length; i++)
             {
                 _fanRenderers[i].enabled = state;
+                AirshiftEachOutline.Sync(
+                    ref _airshiftFanOutlines[i], _fanRenderers[i],
+                    state && ModInfo.AirshiftEnabled && IsEach,
+                    _fanRenderers[i].color.a);
             }
         }
         private void SetPointActive(bool state)
         {
             _pointRenderer.enabled = state;
+            AirshiftEachOutline.Sync(
+                ref _airshiftPointOutline, _pointRenderer,
+                state && ModInfo.AirshiftEnabled && IsEach,
+                _pointRenderer.color.a);
         }
         private void SetJustBorderActive(bool state)
         {
@@ -562,7 +580,17 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             // Tint its RGB only, preserving that alpha and STANDARD behavior.
             var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
             var output = AirshiftNoteVisualPalette.Multiply(color, tint);
-            foreach (var fan in _fanRenderers) fan.color = output;
+            for (var i = 0; i < _fanRenderers.Length; i++)
+            {
+                _fanRenderers[i].color = output;
+                // Outline follows the same animation alpha, without receiving
+                // the blue/red body tint.
+                var outline = _airshiftFanOutlines[i];
+                if (outline is not null)
+                {
+                    outline.color = new Color(1f, 1f, 1f, output.a);
+                }
+            }
         }
         private void SetFansSprite(Sprite sprite)
         {
