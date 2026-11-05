@@ -217,6 +217,43 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(star.sharedMaterial == _rig.BreakMaterial, Is.EqualTo((bool)testCase[5]));
         }
 
+
+        /// <summary>
+        /// AIRSHIFT EACH slide uses the normal skin with yellow silhouettes
+        /// around both native bars and the moving guide STAR.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachSlide_UsesNormalSkinWithYellowOutlines()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var slide = CreateSlide(isEach: true);
+            yield return null;
+
+            var arrow = slide.transform.GetChild(0).GetComponent<SpriteRenderer>();
+            var follower = _rig.SlideStar(0).GetComponent<SpriteRenderer>();
+            Assert.That(arrow.sprite.name, Is.EqualTo("Slide"));
+            Assert.That(follower.sprite.name, Is.EqualTo("Star"));
+
+            slide.SetActive(true);
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(yellow, Is.Not.Null);
+            foreach (var original in new[] { arrow, follower })
+            {
+                var outlineTransform = original.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(outlineTransform, Is.Not.Null);
+                var overlay = outlineTransform!.GetComponent<SpriteRenderer>();
+                Assert.That(overlay.sharedMaterial, Is.SameAs(yellow));
+                Assert.That(overlay.sprite, Is.SameAs(original.sprite));
+                Assert.That(overlay.transform.localScale.x, Is.GreaterThan(1f));
+            }
+
+            slide.SetActive(false);
+            Assert.That(arrow.transform.Find("AIRSHIFT_EachYellowOutline")
+                .GetComponent<SpriteRenderer>().enabled, Is.False);
+            Assert.That(follower.transform.Find("AIRSHIFT_EachYellowOutline")
+                .GetComponent<SpriteRenderer>().enabled, Is.False);
+        }
+
         /// <summary>Checks that the state captured for the slide inspector shows the prefab table and its arrows.</summary>
         /// <returns>The test coroutine.</returns>
         [UnityTest]
