@@ -1,4 +1,5 @@
 ﻿using MajdataPlay.Buffers;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Editor;
 using MajdataPlay.IO;
 using MajdataPlay.Numerics;
@@ -103,6 +104,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
             State = NoteStatus.Inited;
             DJAutoplayRatio = SlideLength / 14;
+            AirshiftSlideOverlapRegistry.Register(this);
         }
 
         /// <summary>
@@ -253,6 +255,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
         void OnDestroy()
         {
+            AirshiftSlideOverlapRegistry.Unregister(this);
             // 这个消息会遮蔽 NoteDrop.OnDestroy，所以在这里保留它的行为
             Active = false;
             if (Table is not null)
