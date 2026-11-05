@@ -310,6 +310,33 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
             Assert.That(hand, Is.EqualTo(AirshiftRequiredHand.Left));
         }
 
+
+        /// <summary>Complex curve hand bindings survive folding by exact source token.</summary>
+        [TestCase("1p4[8:1]")]
+        [TestCase("1V35[8:1]")]
+        [TestCase("1-4[8:1]q7[8:1]")]
+        [TestCase("1-3[8:1]-5[8:1]")]
+        public void AirshiftComplexSlide_HandSurvivesFoldedSourceIdentity(string raw)
+        {
+            var original = new SimaiNote
+            {
+                Type = SimaiNoteType.Slide,
+                StartPosition = 1,
+                RawContent = raw,
+                SlideTime = 1,
+                SlideStartTime = 1
+            };
+            _loader.HandBindings = new Dictionary<SimaiNote, AirshiftRequiredHand>
+            {
+                [original] = AirshiftRequiredHand.Right
+            };
+            var folded = CreateFoldedSlide(raw);
+            var actual = Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", folded, new[] { original });
+
+            Assert.That(actual, Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
         /// <summary>Untagged or mismatched slide sources do not steal a hand marker.</summary>
         [Test]
         public void AirshiftHandedStraightSlide_DoesNotRetagOtherSlideShape()

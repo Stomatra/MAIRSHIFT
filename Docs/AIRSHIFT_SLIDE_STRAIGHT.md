@@ -19,8 +19,9 @@ for tagged straight slides. An ordinary slide still accepts either hand.
 The follower star and slide arrows are tinted blue (left) or red (right)
 while retaining the original skin sprites and fade alpha.
 
-**Not included:** single directional flick completion, curved/chain/WIFI
-hand syntax, overlapping slides, or Android controller hardware support.
+**Next stage:** PR #13 expands L/R to curved, turning and sequential
+chain slides. Handed WIFI, parallel branches, one-flick completion and
+Android controller hardware remain separate.
 
 ## Unity validation
 
