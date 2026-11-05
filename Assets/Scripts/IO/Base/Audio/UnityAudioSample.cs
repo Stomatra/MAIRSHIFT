@@ -213,6 +213,13 @@ namespace MajdataPlay.IO
             var uri = ToAudioUri(filePath);
             using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri.AbsoluteUri, AudioType.UNKNOWN))
             {
+                // Unity's string URL normalization may treat '+' as a space
+                // when a file path also contains spaces (UUM-57122).
+                // The Uri setter bypasses that string normalization.
+                if (uri.IsFile)
+                {
+                    www.uri = uri;
+                }
                 www.SetRequestHeader("User-Agent", MajEnv.HTTP_USER_AGENT);
                 www.SendWebRequest();
                 while (!www.isDone) ;
@@ -228,8 +235,25 @@ namespace MajdataPlay.IO
             var uri = ToAudioUri(filePath);
             using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri.AbsoluteUri, AudioType.UNKNOWN))
             {
+                // Unity's string URL normalization may treat '+' as a space
+                // when a file path also contains spaces (UUM-57122).
+                // The Uri setter bypasses that string normalization.
+                if (uri.IsFile)
+                {
+                    www.uri = uri;
+                }
                 www.SetRequestHeader("User-Agent", MajEnv.HTTP_USER_AGENT);
-                await www.SendWebRequest();
+                try
+                {
+                    await www.SendWebRequest();
+                }
+                catch (UnityWebRequestException exception)
+                {
+                    throw new System.IO.IOException(
+                        "Unity audio request failed for '" + uri.AbsoluteUri +
+                        "' (actual request URI: '" + www.url + "'): " +
+                        www.result + " - " + www.error, exception);
+                }
                 var myClip = GetDecodedClip(www, uri);
                 return new UnityAudioSample(myClip, gameObject)
                 {
