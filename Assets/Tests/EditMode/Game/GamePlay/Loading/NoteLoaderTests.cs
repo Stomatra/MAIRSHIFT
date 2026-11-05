@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MajdataPlay.Game.Notes;
 using MajdataPlay.IO;
 using MajdataPlay.Scenes.Game;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game.Buffers;
 using MajdataPlay.Scenes.Game.Notes.Controllers;
 using MajdataPlay.Scenes.Game.Notes.Touch;
@@ -154,6 +155,109 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
             Assert.That(_loader.IsHasTap[3], Is.False);
             Assert.That(PrivateMember.GetStaticField<Dictionary<int, int>>(typeof(NoteLoader), "_noteIndex"), Is.Empty);
             Assert.That(PrivateMember.GetStaticField<Dictionary<SensorArea, int>>(typeof(NoteLoader), "_touchIndex"), Is.Empty);
+        }
+
+        /// <summary>
+        /// Runs an AIRSHIFT fumen through the real MajSimai parser, hand tagger,
+        /// and STANDARD Game's existing NoteLoader factories.
+        /// This guards the common-Game-scene path rather than the isolated prototype.
+        /// </summary>
+        [Test]
+        public void AirshiftHandedChart_ParsedNotesReachExistingTapAndTouchPools()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(
+                "(120){4}L1$,R5$,LA1,RB3,1$,A1,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            _loader.HandBindings = bindings;
+
+            var sawBlueStar = false;
+            var sawRedStar = false;
+            var sawBlueTouch = false;
+            var sawRedTouch = false;
+            var sawUnmarkedStar = false;
+            var sawUnmarkedTouch = false;
+
+            foreach (var timing in chart.NoteTimings)
+            {
+                foreach (var note in timing.Notes)
+                {
+                    if (note.Type == SimaiNoteType.Tap)
+                    {
+                        var info = Invoke<TapPoolingInfo>("CreateTap", note, timing);
+                        Assert.That(info.IsStar, Is.True,
+                            "Both tagged and untagged standalone $ notes must use the STAR skin.");
+                        if (note.StartPosition == 1)
+                        {
+                            if (sawBlueStar)
+                            {
+                                sawUnmarkedStar = info.RequiredHand == AirshiftRequiredHand.Any;
+                            }
+                            else
+                            {
+                                sawBlueStar = info.RequiredHand == AirshiftRequiredHand.Left;
+                            }
+                        }
+                        if (note.StartPosition == 5)
+                        {
+                            sawRedStar = info.RequiredHand == AirshiftRequiredHand.Right;
+                        }
+                    }
+                    else if (note.Type == SimaiNoteType.Touch)
+                    {
+                        var members = new List<ITouchGroupInfoProvider>();
+                        var info = Invoke<TouchPoolingInfo>("CreateTouch", note, timing, members);
+                        if (note.TouchArea == 'A')
+                        {
+                            if (sawBlueTouch)
+                            {
+                                sawUnmarkedTouch = info.RequiredHand == AirshiftRequiredHand.Any;
+                            }
+                            else
+                            {
+                                sawBlueTouch = info.RequiredHand == AirshiftRequiredHand.Left;
+                            }
+                        }
+                        if (note.TouchArea == 'B')
+                        {
+                            sawRedTouch = info.RequiredHand == AirshiftRequiredHand.Right;
+                        }
+                    }
+                }
+            }
+
+            Assert.That(sawBlueStar, Is.True);
+            Assert.That(sawRedStar, Is.True);
+            Assert.That(sawBlueTouch, Is.True);
+            Assert.That(sawRedTouch, Is.True);
+            Assert.That(sawUnmarkedStar, Is.True);
+            Assert.That(sawUnmarkedTouch, Is.True);
+        }
+
+        /// <summary>STANDARD has no hand tag map and retains Any on the same pooled note types.</summary>
+        [Test]
+        public void StandardChart_WithoutBindingsUsesAnyHandForStarAndTouch()
+        {
+            _loader.HandBindings = null;
+            var star = new SimaiNote
+            {
+                Type = SimaiNoteType.Tap,
+                StartPosition = 1,
+                IsForceStar = true
+            };
+            var touch = new SimaiNote
+            {
+                Type = SimaiNoteType.Touch,
+                TouchArea = 'A',
+                StartPosition = 2
+            };
+
+            var starInfo = Invoke<TapPoolingInfo>("CreateTap", star, Timing(1d, star));
+            var members = new List<ITouchGroupInfoProvider>();
+            var touchInfo = Invoke<TouchPoolingInfo>("CreateTouch", touch, Timing(2d, touch), members);
+
+            Assert.That(starInfo.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Any));
+            Assert.That(touchInfo.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Any));
         }
 
         /// <summary>Checks the tap info: rotation, queue index, sort order, appear timing and flags.</summary>

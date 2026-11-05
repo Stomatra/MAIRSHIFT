@@ -1,6 +1,7 @@
 using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Tests;
 using MajRadar.Core;
+using MajSimai;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,93 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
     /// <summary>Verifies the Task 006 chart, judgement, score, and persistence isolation.</summary>
     public class AirshiftChartPlayTests
     {
+        [Test]
+        public void GameSyntax_RecognizesHandedStarsAndTouchesOnlyInAirshift()
+        {
+            var source = "(120){4}L1$,R5$,LA1,RB3,1$,A1,E";
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+
+            Assert.That(syntax.SimaiText, Is.EqualTo("(120){4}1$,5$,A1,B3,1$,A1,E"));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(4));
+            Assert.That(syntax.Markers.Select(x => x.RequiredHand), Is.EqualTo(new[]
+            {
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right,
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right,
+            }));
+            Assert.That(syntax.SourceCounts["T:A1"], Is.EqualTo(2));
+            Assert.That(syntax.SourceCounts["C:A1"], Is.EqualTo(2));
+            // STANDARD must never invoke Preprocess, so it receives unmodified fumen.
+            Assert.That(source, Does.StartWith("(120){4}L1$"));
+        }
+
+        [Test]
+        public void GameSyntax_RejectsUnsupportedHandedSlidesAndIdenticalDoubles()
+        {
+            Assert.Throws<FormatException>(() =>
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1-5[8:1],E"));
+            Assert.Throws<FormatException>(() =>
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}R1h[4:1],E"));
+            Assert.Throws<FormatException>(() =>
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/R1$,E"));
+        }
+
+        [Test]
+        public void GameSyntax_ParsedMajSimaiNotesHaveHandsForOriginalGameLoader()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(
+                "(120){4}L1$,R5$,LA1,RB3,1$,A1,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+
+            Assert.That(bindings.Count, Is.EqualTo(4));
+            var marked = FlattenNotes(chart)
+                .Where(bindings.ContainsKey).ToArray();
+            Assert.That(marked.Count(n => n.Type == SimaiNoteType.Tap && n.IsForceStar), Is.EqualTo(2));
+            Assert.That(marked.Count(n => n.Type == SimaiNoteType.Touch), Is.EqualTo(2));
+            Assert.That(marked.Single(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1)
+                .IsForceStar, Is.True);
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1)],
+                Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 5)],
+                Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'A')],
+                Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'B')],
+                Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(FlattenNotes(chart).Count() - bindings.Count,
+                Is.EqualTo(2), "Unprefixed notes remain unbound and accept either hand.");
+        }
+
+        [Test]
+        public void GameSyntax_UsesOrdinalAfterEarlierOrdinaryNote()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}1,L1$,A1,RA1,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+
+            var taps = FlattenNotes(chart)
+                .Where(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1).ToArray();
+            var touches = FlattenNotes(chart)
+                .Where(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'A').ToArray();
+            Assert.That(taps.Length, Is.EqualTo(2));
+            Assert.That(touches.Length, Is.EqualTo(2));
+            Assert.That(bindings.ContainsKey(taps[0]), Is.False);
+            Assert.That(bindings[taps[1]], Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings.ContainsKey(touches[0]), Is.False);
+            Assert.That(bindings[touches[1]], Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
+        [Test]
+        public void GameSyntax_RejectsParserCountMismatchInsteadOfWrongHandAssignment()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$,E");
+            var wrongChart = SimaiParser.ParseChart("(120){4}1,1$,E".AsSpan());
+            Assert.Throws<FormatException>(() =>
+                AirshiftHandedSimaiSyntax.BindGameNotes(wrongChart, syntax));
+        }
+
         [Test]
         public void Converter_PreservesStableIdsDuplicatesAndModifiers()
         {
@@ -210,6 +298,23 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
                 new AirshiftScoreSnapshot(),
                 debugInput: true));
             Assert.That(directory.FindFile(AirshiftRecordStore.FileName), Is.Null);
+        }
+
+        /// <summary>
+        /// Materializes the parser's ReadOnlySpan-backed timing/note collections
+        /// before using LINQ. LINQ's SelectMany cannot enumerate ReadOnlySpan.
+        /// </summary>
+        private static SimaiNote[] FlattenNotes(SimaiChart chart)
+        {
+            var notes = new List<SimaiNote>();
+            foreach (var timing in chart.NoteTimings)
+            {
+                foreach (var note in timing.Notes)
+                {
+                    notes.Add(note);
+                }
+            }
+            return notes.ToArray();
         }
 
         private static AirshiftChart Chart(params AirshiftChartNote[] notes)
