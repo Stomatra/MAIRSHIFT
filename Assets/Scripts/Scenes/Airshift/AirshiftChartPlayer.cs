@@ -61,10 +61,7 @@ namespace MajdataPlay.Scenes.Airshift
                 }
                 var level = levelIndex < song.Levels.Length ? song.Levels[levelIndex] : string.Empty;
                 var designer = levelIndex < song.Designers.Length ? song.Designers[levelIndex] : string.Empty;
-                // Only AIRSHIFT understands L/R note prefixes. STANDARD still
-                // passes the original fumen to MajSimai without preprocessing.
-                var handedSyntax = AirshiftHandedSimaiSyntax.Preprocess(fumen);
-                var simaiChart = await SimaiParser.ParseChartAsync(level, designer, handedSyntax.SimaiText);
+                var simaiChart = await SimaiParser.ParseChartAsync(level, designer, fumen);
                 cancellationToken.ThrowIfCancellationRequested();
                 var adaptation = new MajSimaiChartAdapter(new PlayExtendedSlideBarCountProvider())
                     .Adapt(simaiChart, cancellationToken);
@@ -74,7 +71,6 @@ namespace MajdataPlay.Scenes.Airshift
                         "AIRSHIFT chart conversion failed: " + string.Join("; ", adaptation.Errors));
                 }
                 Chart = AirshiftChartConverter.Convert(adaptation.Chart, simaiFile.Offset);
-                AirshiftHandedSimaiSyntax.Apply(Chart, handedSyntax);
                 if (Chart.Notes.Count == 0)
                 {
                     throw new InvalidOperationException("Selected AIRSHIFT chart contains no playable notes.");
