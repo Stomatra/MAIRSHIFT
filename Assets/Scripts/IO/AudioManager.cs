@@ -467,7 +467,7 @@ namespace MajdataPlay.IO
                 switch (backend)
                 {
                     case SoundBackendOption.Unity:
-                        sample = UnityAudioSample.Create($"file://{path}", gameObject);
+                        sample = UnityAudioSample.Create(new Uri(System.IO.Path.GetFullPath(path)).AbsoluteUri, gameObject);
                         break;
                     case SoundBackendOption.Asio:
                     case SoundBackendOption.Wasapi:
@@ -525,7 +525,7 @@ namespace MajdataPlay.IO
                 {
                     case SoundBackendOption.Unity:
                         await UniTask.SwitchToMainThread();
-                        sample = await UnityAudioSample.CreateAsync($"file://{path}", gameObject);
+                        sample = await UnityAudioSample.CreateAsync(new Uri(System.IO.Path.GetFullPath(path)).AbsoluteUri, gameObject);
                         break;
                     case SoundBackendOption.Asio:
                     case SoundBackendOption.Wasapi:
