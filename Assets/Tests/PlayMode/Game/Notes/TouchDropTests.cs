@@ -25,6 +25,98 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
     /// </summary>
     public class TouchDropTests
     {
+        /// <summary>
+        /// AIRSHIFT yellow EACH outlines follow all four fans, center point
+        /// and just border while using the active normal custom-skin body.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachTouch_NormalSkinSixOutlinesTrackFade()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var touch = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B1, timing: 1f, isEach: true,
+                requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(yellow, Is.Not.Null);
+            Assert.That(touch.IsEach, Is.True);
+
+            for (var child = 0; child <= 5; child++)
+            {
+                var source = touch.transform.GetChild(child).GetComponent<SpriteRenderer>();
+                var outlineTransform = source.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(outlineTransform, Is.Not.Null, "Touch component " + child);
+                var outline = outlineTransform!.GetComponent<SpriteRenderer>();
+                Assert.That(outline.sharedMaterial, Is.SameAs(yellow));
+                Assert.That(outline.sprite, Is.SameAs(source.sprite));
+            }
+            Assert.That(touch.transform.GetChild(1).GetComponent<SpriteRenderer>().sprite.name,
+                Is.EqualTo("Touch"));
+            Assert.That(touch.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.name,
+                Is.EqualTo("TouchPoint"));
+
+            var fan = touch.transform.GetChild(1).GetComponent<SpriteRenderer>();
+            var fanOutline = fan.transform.Find("AIRSHIFT_EachYellowOutline").GetComponent<SpriteRenderer>();
+            UpdateAt(touch, 0.6f);
+            Assert.That(fanOutline.color.a, Is.EqualTo(fan.color.a).Within(0.0001f));
+            UpdateAt(touch, 0.7f);
+            Assert.That(fanOutline.color.a, Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        /// <summary>
+        /// Split shader remains attached to all six original TOUCH layers,
+        /// while independent child silhouettes supply yellow EACH borders.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachOverlappingTouches_KeepSplitAndSixYellowOutlines()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTouch(GameplayRig.TouchInfo(SensorArea.B3,
+                timing: 1f, isEach: true, index: 0, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTouch(GameplayRig.TouchInfo(SensorArea.B3,
+                timing: 1f, isEach: true, index: 1, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            var split = Resources.Load<Material>("AirshiftOverlaps/TouchSplit");
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(split, Is.Not.Null);
+            Assert.That(yellow, Is.Not.Null);
+            foreach (var touch in new[] { left, right })
+            {
+                for (var child = 0; child <= 5; child++)
+                {
+                    var source = touch.transform.GetChild(child).GetComponent<SpriteRenderer>();
+                    Assert.That(source.sharedMaterial, Is.SameAs(split),
+                        "Original TOUCH split layer " + child);
+                    var outlineTransform = source.transform.Find("AIRSHIFT_EachYellowOutline");
+                    Assert.That(outlineTransform, Is.Not.Null);
+                    Assert.That(outlineTransform!.GetComponent<SpriteRenderer>().sharedMaterial,
+                        Is.SameAs(yellow));
+                }
+            }
+        }
+
+        /// <summary>STANDARD Each TOUCH still uses imported Each artwork.</summary>
+        [UnityTest]
+        public IEnumerator StandardEachTouch_UsesOriginalEachArtworkWithoutOverlay()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var touch = _rig.SpawnTouch(GameplayRig.TouchInfo(SensorArea.B1, isEach: true));
+            yield return null;
+
+            Assert.That(touch.transform.GetChild(1).GetComponent<SpriteRenderer>().sprite.name,
+                Is.EqualTo("Touch_Each"));
+            Assert.That(touch.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.name,
+                Is.EqualTo("TouchPoint_Each"));
+            for (var child = 0; child <= 5; child++)
+            {
+                Assert.That(touch.transform.GetChild(child).Find("AIRSHIFT_EachYellowOutline"),
+                    Is.Null);
+            }
+        }
+
+
         /// <summary>The gameplay objects of the current test.</summary>
         private GameplayRig _rig = null!;
 
