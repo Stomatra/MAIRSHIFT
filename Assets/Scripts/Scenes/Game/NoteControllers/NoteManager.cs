@@ -32,6 +32,32 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
         EachLineUpdater _eachLineUpdater;
         SlideOKUpdater _slideOKUpdater;
 
+        /// <summary>
+        /// AIRSHIFT-only exceptions for a pair of co-timed opposite-hand STARs.
+        /// Two queue indexes refer to the same pair so the second can be hit first.
+        /// </summary>
+        private readonly Dictionary<(int Key, long Index), AirshiftStarPair> _airshiftStarPairs = new();
+
+        /// <summary>Tracks independent resolution of two adjacent STAR queue entries.</summary>
+        private sealed class AirshiftStarPair
+        {
+            /// <summary>Original first queue index on one key.</summary>
+            internal readonly long FirstIndex;
+            /// <summary>Original second queue index on the same key.</summary>
+            internal readonly long SecondIndex;
+            /// <summary>Whether the first STAR has ended.</summary>
+            internal bool FirstDone;
+            /// <summary>Whether the second STAR has ended.</summary>
+            internal bool SecondDone;
+
+            /// <summary>Creates a two-hand simultaneous STAR group.</summary>
+            internal AirshiftStarPair(long firstIndex, long secondIndex)
+            {
+                FirstIndex = firstIndex;
+                SecondIndex = secondIndex;
+            }
+        }
+
         readonly int[] _noteCurrentIndex = new int[8];
         readonly int[] _touchCurrentIndex = new int[33];
 
@@ -285,6 +311,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
 #endif
             Array.Fill(_noteCurrentIndex, 0);
             Array.Fill(_touchCurrentIndex, 0);
+            _airshiftStarPairs.Clear();
         }
         public void ResetCounter()
         {
@@ -296,6 +323,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
             {
                 _touchCurrentIndex[i] = 0;
             }
+            _airshiftStarPairs.Clear();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         void GameIOUpdate()
@@ -390,6 +418,26 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
 #endif
             }
         }
+        /// <summary>
+        /// Registers adjacent STAR indexes from the AIRSHIFT chart loader.
+        /// Ordinary notes and STANDARD charts never register such pairs.
+        /// </summary>
+        /// <param name="first">Earlier queue entry on a button key.</param>
+        /// <param name="second">Immediately following same-key STAR entry.</param>
+        internal void RegisterAirshiftStarPair(TapQueueInfo first, TapQueueInfo second)
+        {
+            if (first.KeyIndex < 1 || first.KeyIndex > 8 ||
+                second.KeyIndex != first.KeyIndex ||
+                second.Index != first.Index + 1)
+            {
+                throw new ArgumentException("AIRSHIFT overlap requires adjacent same-key STAR queue entries.");
+            }
+
+            var pair = new AirshiftStarPair(first.Index, second.Index);
+            _airshiftStarPairs.Add((first.KeyIndex, first.Index), pair);
+            _airshiftStarPairs.Add((second.KeyIndex, second.Index), pair);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsCurrentNoteJudgeable(in TapQueueInfo queueInfo)
         {
@@ -402,7 +450,17 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
             var currentIndex = _noteCurrentIndex[keyIndex];
             var index = queueInfo.Index;
 
-            return index <= currentIndex;
+            if (index <= currentIndex)
+            {
+                return true;
+            }
+
+            // Only the second member of a registered AIRSHIFT pair may
+            // bypass the default per-key FIFO while its first is still pending.
+            return _airshiftStarPairs.TryGetValue((queueInfo.KeyIndex, index), out var pair) &&
+                   pair.FirstIndex == currentIndex &&
+                   pair.SecondIndex == index &&
+                   !pair.SecondDone;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsCurrentNoteJudgeable(in TouchQueueInfo queueInfo)
@@ -427,6 +485,42 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
                 return;
             }
             ref var currentIndex = ref _noteCurrentIndex[keyIndex];
+
+            if (_airshiftStarPairs.TryGetValue((queueInfo.KeyIndex, queueInfo.Index), out var pair))
+            {
+                if (queueInfo.Index == pair.FirstIndex)
+                {
+                    if (pair.FirstDone)
+                    {
+                        return;
+                    }
+
+                    pair.FirstDone = true;
+                    if (currentIndex == pair.FirstIndex)
+                    {
+                        currentIndex++;
+                        if (pair.SecondDone)
+                        {
+                            currentIndex++;
+                        }
+                    }
+                }
+                else
+                {
+                    if (pair.SecondDone)
+                    {
+                        return;
+                    }
+
+                    pair.SecondDone = true;
+                    if (currentIndex == pair.SecondIndex)
+                    {
+                        currentIndex++;
+                    }
+                }
+
+                return;
+            }
 
             currentIndex++;
         }

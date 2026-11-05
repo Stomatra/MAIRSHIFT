@@ -440,6 +440,41 @@ namespace MajdataPlay.Scenes.Game
                         }
                     }
                     token.ThrowIfCancellationRequested();
+
+                    // Same-beat opposite-hand STARs must be independently
+                    // judgeable even when the right-hand queue index is second.
+                    // Register only true adjacent paired STAR pool entries.
+                    if (HandBindings is not null)
+                    {
+                        for (var firstIndex = 0; firstIndex < eachNotes.Count; firstIndex++)
+                        {
+                            if (eachNotes[firstIndex] is not TapPoolingInfo first ||
+                                !first.IsStar || first.IsBreak || first.IsEX || first.IsMine ||
+                                first.RequiredHand == AirshiftRequiredHand.Any)
+                            {
+                                continue;
+                            }
+
+                            for (var secondIndex = firstIndex + 1; secondIndex < eachNotes.Count; secondIndex++)
+                            {
+                                if (eachNotes[secondIndex] is not TapPoolingInfo second ||
+                                    !second.IsStar || second.IsBreak || second.IsEX || second.IsMine ||
+                                    second.RequiredHand == AirshiftRequiredHand.Any ||
+                                    first.RequiredHand == second.RequiredHand ||
+                                    first.StartPos != second.StartPos ||
+                                    first.Timing != second.Timing ||
+                                    first.Speed != second.Speed ||
+                                    first.RotateSpeed != second.RotateSpeed ||
+                                    first.QueueInfo.Index + 1 != second.QueueInfo.Index)
+                                {
+                                    continue;
+                                }
+
+                                _noteManager.RegisterAirshiftStarPair(first.QueueInfo, second.QueueInfo);
+                            }
+                        }
+                    }
+
                     if (touchGroupMembers.Count != 0)
                     {
                         touchTasks.Add(AllocTouchGroup(touchGroupMembers));
