@@ -68,6 +68,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                             }
 
                             StarRenderer.color = HandedStarColor(0f);
+                            SyncSlideStarEachOutlines();
                             starTransform.localScale = new Vector3(0, 0, 1);
                             NoteHelper.Sorting.SetPosition(starTransform, StarPositions[0]);
                             ApplyStarRotation(StarRotations[0]);
@@ -80,6 +81,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         if (timing > 0f)
                         {
                             StarRenderer.color = HandedStarColor(1f);
+                            SyncSlideStarEachOutlines();
                             if (!IsSlideNoHead)
                             {
                                 starTransform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
@@ -101,6 +103,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         var alpha = (1f - -timing / (StartTiming - Timing)).Clamp(0, 1);
 
                         StarRenderer.color = HandedStarColor(alpha);
+                            SyncSlideStarEachOutlines();
                         if (IsClassic)
                         {
                             var scale = 1 + alpha / 2;
@@ -407,7 +410,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             }
             else
             {
-                if (IsEach)
+                if (IsEach && !ModInfo.AirshiftEnabled)
                 {
                     barSprite = skin.Each;
                     starSprite = skin.Star.Each;
