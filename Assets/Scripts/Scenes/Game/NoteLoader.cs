@@ -507,10 +507,19 @@ namespace MajdataPlay.Scenes.Game
                                     first.StartPos != second.StartPos ||
                                     first.Timing != second.Timing ||
                                     first.Speed != second.Speed ||
-                                    first.RotateSpeed != second.RotateSpeed ||
+                                    (first.RotateSpeed != second.RotateSpeed &&
+                                     !(first.IsDouble && second.IsDouble)) ||
                                     first.QueueInfo.Index + 1 != second.QueueInfo.Index)
                                 {
                                     continue;
+                                }
+
+                                if (first.IsDouble && second.IsDouble)
+                                {
+                                    // Parallel path lengths can differ. Align
+                                    // paired slide-head STAR rotations for the
+                                    // existing blue/red half split material.
+                                    second.RotateSpeed = first.RotateSpeed;
                                 }
 
                                 _noteManager.RegisterAirshiftStarPair(first.QueueInfo, second.QueueInfo);
