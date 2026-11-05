@@ -250,6 +250,33 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
                 Is.Empty);
         }
 
+
+        /// <summary>
+        /// Two completely identical L/R slide paths must not be collapsed
+        /// by MajSimai or lose their independent AIRSHIFT hand binding.
+        /// Compare with same-origin but different-path pairs elsewhere.
+        /// </summary>
+        [Test]
+        public void GameSyntax_CompletelyIdenticalParallelLRSlidesRemainTwoNotes()
+        {
+            const string source = "(120){4}L1-4[8:1]*R1-4[8:1],E";
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText,
+                Is.EqualTo("(120){4}1-4[8:1]/1-4[8:1],E"));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(2));
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart)
+                .Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(slides, Has.Length.EqualTo(2));
+            Assert.That(slides[0], Is.Not.SameAs(slides[1]));
+            Assert.That(slides[0].RawContent, Is.EqualTo(slides[1].RawContent));
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(bindings.Count, Is.EqualTo(2));
+            Assert.That(bindings.Values,
+                Is.EquivalentTo(new[] { AirshiftRequiredHand.Left,
+                                        AirshiftRequiredHand.Right }));
+        }
+
         /// <summary>Ordinary unprefixed WIFI charts still reach MajSimai untouched.</summary>
         [Test]
         public void GameSyntax_OrdinaryWifiRemainsUnchanged()
