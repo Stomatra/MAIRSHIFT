@@ -28,6 +28,77 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
         protected float DJAutoplayRatio = 1;
 
+        /// <summary>Data exposed only to the visual pair registry.</summary>
+        internal object OverlapSession => NoteController;
+        internal SpriteRenderer OverlapStarRenderer => StarRenderer;
+        internal int OverlapStarPositionCount => StarPositions.Count;
+        internal int OverlapBarCount => SlideBarRenderers.Count;
+        internal Vector3 GetOverlapStarPosition(int index) => StarPositions[index];
+        internal Quaternion GetOverlapStarRotation(int index) => StarRotations[index];
+        internal SpriteRenderer GetOverlapBarRenderer(int index) => SlideBarRenderers[index];
+
+        internal bool OverlapCanSplit =>
+            ModInfo.AirshiftEnabled &&
+            (RequiredHand == AirshiftRequiredHand.Left ||
+             RequiredHand == AirshiftRequiredHand.Right) &&
+            !IsMine && !IsBreak && !IsEX &&
+            !IsSlideNoHead && !IsSlideNoTrack &&
+            Length > 0f;
+
+        /// <summary>
+        /// Uses the same segment interpolation as OnUpdate's moving STAR.
+        /// Downward travel has screen-right normal (+X), so blue appears
+        /// on screen-left and red on screen-right.
+        /// </summary>
+        internal Vector2 GetOverlapStarDirection()
+        {
+            if (StarPositions.Count < 2)
+                return Vector2.down;
+            var progress = Length > 0f
+                ? Mathf.Clamp01((ThisFrameSec - StartTiming) / Length)
+                : 0f;
+            var index = Mathf.Min(
+                Mathf.FloorToInt(progress * (StarPositions.Count - 1)),
+                StarPositions.Count - 2);
+            for (var step = 0; step < StarPositions.Count - 1; step++)
+            {
+                var sample = Mathf.Min(index + step, StarPositions.Count - 2);
+                var difference = StarPositions[sample + 1] - StarPositions[sample];
+                if (difference.sqrMagnitude > 1e-8f)
+                    return new Vector2(difference.x, difference.y);
+            }
+            return Vector2.down;
+        }
+
+        /// <summary>
+        /// Arrows are stationary along the path, so take the tangent of
+        /// the nearest complete follower-path segment in world space.
+        /// </summary>
+        internal Vector2 GetOverlapArrowDirection(Vector3 position)
+        {
+            var best = float.MaxValue;
+            var direction = Vector2.down;
+            var point = new Vector2(position.x, position.y);
+            for (var i = 0; i < StarPositions.Count - 1; i++)
+            {
+                var from = StarPositions[i];
+                var to = StarPositions[i + 1];
+                var start = new Vector2(from.x, from.y);
+                var delta = new Vector2(to.x - from.x, to.y - from.y);
+                var distanceSquared = delta.sqrMagnitude;
+                if (distanceSquared < 1e-8f)
+                    continue;
+                var t = Mathf.Clamp01(Vector2.Dot(point - start, delta) / distanceSquared);
+                var separation = (point - start - t * delta).sqrMagnitude;
+                if (separation < best)
+                {
+                    best = separation;
+                    direction = delta;
+                }
+            }
+            return direction;
+        }
+
         private Color HandedStarColor(float alpha)
         {
             var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
@@ -491,6 +562,16 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             {
                 starTransform.rotation = newRotation;
             }
+            // Recompute the local shader clipping axis when the curve turns.
+            AirshiftSlideOverlapRegistry.RefreshStar(this);
+        }
+
+        protected override void End()
+        {
+            // Restore the remaining partner's full color on early finish,
+            // judgement, or a pooled note leaving the active game.
+            AirshiftSlideOverlapRegistry.Unregister(this);
+            base.End();
         }
     }
 }
