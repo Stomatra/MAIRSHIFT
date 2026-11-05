@@ -2,6 +2,7 @@ using System.Collections;
 using System.Text.RegularExpressions;
 using MajdataPlay.IO;
 using MajdataPlay.Scenes.Game.Notes;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game.Notes.Behaviours;
 using MajdataPlay.Scenes.Game.Notes.Slide;
 using MajdataPlay.Settings;
@@ -195,6 +196,153 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             yield return null;
 
             Assert.That(PrivateMember.GetField<float>(slide, "FadeInTiming"), Is.EqualTo(0.6f - (3.926913f / 7.5f)).Within(1e-4f));
+        }
+
+
+        /// <summary>
+        /// Two completely identical L/R SLIDEs must split BOTH the
+        /// moving guide stars and every static arrow, with a yellow center.
+        /// The separate EACH yellow outlines from PR #18 remain in place.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftFullyOverlappingSlides_SplitStarsAndWholeArrowPath()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = CreateSlide(isEach: true, requiredHand: AirshiftRequiredHand.Left);
+            var right = CreateSlide(isEach: true, requiredHand: AirshiftRequiredHand.Right);
+            yield return null;
+
+            Assert.That(AirshiftSlideOverlapRegistry.SameCompletePath(left, right), Is.True);
+            var split = Resources.Load<Material>("AirshiftOverlaps/SlideSplit");
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(split, Is.Not.Null);
+            Assert.That(yellow, Is.Not.Null);
+
+            var sides = new[] { -1f, 1f };
+            for (var note = 0; note < 2; note++)
+            {
+                var slide = note == 0 ? left : right;
+                var guide = _rig.SlideStar(note).GetComponent<SpriteRenderer>();
+                Assert.That(guide.sharedMaterial, Is.SameAs(split));
+                var block = new MaterialPropertyBlock();
+                guide.GetPropertyBlock(block);
+                Assert.That(block.GetFloat(Shader.PropertyToID("_SplitSide")),
+                    Is.EqualTo(sides[note]));
+
+                slide.SetActive(true);
+                for (var index = 0; index < slide.transform.childCount; index++)
+                {
+                    var bar = slide.transform.GetChild(index).GetComponent<SpriteRenderer>();
+                    Assert.That(bar.sharedMaterial, Is.SameAs(split),
+                        "Arrow " + index + " on hand " + note);
+                    bar.GetPropertyBlock(block);
+                    Assert.That(block.GetFloat(Shader.PropertyToID("_SplitSide")),
+                        Is.EqualTo(sides[note]));
+                    var outline = bar.transform.Find("AIRSHIFT_EachYellowOutline");
+                    Assert.That(outline, Is.Not.Null);
+                    Assert.That(outline!.GetComponent<SpriteRenderer>().sharedMaterial,
+                        Is.SameAs(yellow));
+                }
+
+                var starOutline = guide.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(starOutline, Is.Not.Null);
+                Assert.That(starOutline!.GetComponent<SpriteRenderer>().sharedMaterial,
+                    Is.SameAs(yellow));
+            }
+
+            Assert.That(left.QueueRemaining, Is.EqualTo(right.QueueRemaining));
+        }
+
+        [Test]
+        public void AirshiftOverlap_RightNormalForDownwardsTravelGivesBlueLeftRedRight()
+        {
+            Assert.That(AirshiftSlideOverlapRegistry.RightOfTravel(Vector2.down),
+                Is.EqualTo(Vector2.right));
+            Assert.That(AirshiftSlideOverlapRegistry.RightOfTravel(Vector2.right),
+                Is.EqualTo(Vector2.up));
+            Assert.That(AirshiftSlideOverlapRegistry.RightOfTravel(Vector2.up),
+                Is.EqualTo(Vector2.left));
+        }
+
+        /// <summary>Same starting STAR but a different duration is NOT full overlap.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftPartiallyOverlappingSlides_DifferentLengthNeverSplit()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = CreateSlide(requiredHand: AirshiftRequiredHand.Left);
+            var right = CreateSlide(requiredHand: AirshiftRequiredHand.Right, length: 2f);
+            yield return null;
+
+            Assert.That(AirshiftSlideOverlapRegistry.SameCompletePath(left, right), Is.False);
+            Assert.That(_rig.SlideStar(0).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.Not.SameAs(Resources.Load<Material>("AirshiftOverlaps/SlideSplit")));
+            Assert.That(_rig.SlideStar(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.Not.SameAs(Resources.Load<Material>("AirshiftOverlaps/SlideSplit")));
+        }
+
+        /// <summary>
+        /// Even when the start key and timing match, different actual
+        /// paths should remain two independent solid colored trails.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftDifferentGeometryAtSameStart_DoesNotSplit()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = CreateSlide(requiredHand: AirshiftRequiredHand.Left);
+            var right = CreateSlide(requiredHand: AirshiftRequiredHand.Right,
+                isMirror: true);
+            yield return null;
+
+            Assert.That(AirshiftSlideOverlapRegistry.SameCompletePath(left, right), Is.False);
+            Assert.That(_rig.SlideStar(0).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.Not.SameAs(Resources.Load<Material>("AirshiftOverlaps/SlideSplit")));
+        }
+
+        /// <summary>Only exactly two paired notes may use the split shader.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftThreeIdenticalSlides_DoNotChooseArbitraryPair()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = CreateSlide(requiredHand: AirshiftRequiredHand.Left);
+            var right = CreateSlide(requiredHand: AirshiftRequiredHand.Right);
+            var extra = CreateSlide(requiredHand: AirshiftRequiredHand.Left);
+            yield return null;
+
+            var split = Resources.Load<Material>("AirshiftOverlaps/SlideSplit");
+            Assert.That(AirshiftSlideOverlapRegistry.SameCompletePath(left, right), Is.True);
+            for (var index = 0; index < 3; index++)
+            {
+                Assert.That(_rig.SlideStar(index).GetComponent<SpriteRenderer>().sharedMaterial,
+                    Is.Not.SameAs(split));
+            }
+        }
+
+        /// <summary>
+        /// When a paired slide ends early, the remaining moving STAR and
+        /// full track restore their original material rather than keeping
+        /// only their right/left half.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftOverlappingSlide_EndRestoresRemainingPartner()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = CreateSlide(requiredHand: AirshiftRequiredHand.Left);
+            var right = CreateSlide(requiredHand: AirshiftRequiredHand.Right);
+            yield return null;
+
+            var split = Resources.Load<Material>("AirshiftOverlaps/SlideSplit");
+            Assert.That(_rig.SlideStar(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(split));
+
+            PrivateMember.Invoke(left, "End");
+
+            var other = _rig.SlideStar(1).GetComponent<SpriteRenderer>();
+            Assert.That(other.sharedMaterial, Is.Not.SameAs(split));
+            for (var index = 0; index < right.transform.childCount; index++)
+            {
+                Assert.That(right.transform.GetChild(index)
+                    .GetComponent<SpriteRenderer>().sharedMaterial, Is.Not.SameAs(split));
+            }
         }
 
         /// <summary>Checks the bar, star and material choices for every slide variant.</summary>
@@ -645,14 +793,17 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
                                       bool isMine = false,
                                       bool isMirror = false,
                                       bool isJustR = false,
-                                      bool initialize = true)
+                                      bool initialize = true,
+                                      AirshiftRequiredHand requiredHand = AirshiftRequiredHand.Any,
+                                      float length = 1f)
         {
             var slide = _rig.SpawnSlide<SlideDrop>(_rig.CreateSlideTemplate("line3"));
             slide.StartPos = startPos;
             slide.Timing = 0.5f;
             slide.StartTiming = 1f;
-            slide.Length = 1f;
+            slide.Length = length;
             slide.Speed = 7.5f;
+            slide.RequiredHand = requiredHand;
             slide.IsBreak = isBreak;
             slide.IsEach = isEach;
             slide.IsMine = isMine;
