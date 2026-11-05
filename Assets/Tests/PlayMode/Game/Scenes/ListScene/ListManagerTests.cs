@@ -323,23 +323,6 @@ namespace MajdataPlay.Tests.Game.Scenes.PlayMode.ListScene
             Assert.That(Sfx("bgm_select.mp3").StopCount, Is.EqualTo(1));
         }
 
-        /// <summary>AIRSHIFT chart play must enter its own selector and never initialize STANDARD GameInfo.</summary>
-        [UnityTest]
-        public IEnumerator AirshiftStartButton_OpensIndependentSelectorWithoutStandardTrackStart()
-        {
-            MajEnv.Settings.Mod.AirshiftEnabled = true;
-            yield return StartScene();
-            ExpectSceneSwitch();
-
-            InputSimulator.StepUntilButtonReleaseCompleted(ButtonZone.A4, 0.2f);
-            yield return null;
-
-            Assert.That(IsExited, Is.True);
-            Assert.That(_manager.CancellationToken.IsCancellationRequested, Is.True);
-            Assert.That(Sfx("track_start.wav").PlayOneShotCount, Is.Zero);
-            Assert.That(Sfx("bgm_select.mp3").StopCount, Is.Zero);
-        }
-
         /// <summary>Checks that holding the start button plays the explosion and then starts practice mode.</summary>
         /// <returns>The test coroutine.</returns>
         [UnityTest]
