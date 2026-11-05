@@ -388,6 +388,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                                     starTransform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
                                 }
                             }
+                            SyncSlideStarEachOutlines();
                             State = NoteStatus.Running;
                             goto case NoteStatus.Running;
                         }
@@ -412,6 +413,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                                 starTransform.localScale = new Vector3(alpha + 0.5f, alpha + 0.5f, alpha + 0.5f);
                             }
                         }
+                        SyncSlideStarEachOutlines();
                         break;
                     case NoteStatus.Running:
                         var remaingTimeWithoutOffset = GetRemainingTimeWithoutOffset();
@@ -592,7 +594,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             }
             else
             {
-                if (IsEach)
+                if (IsEach && !ModInfo.AirshiftEnabled)
                 {
                     barSprites = skin.Each;
                     starSprite = skin.Star.Each;

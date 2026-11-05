@@ -110,6 +110,39 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(result.transform.rotation.eulerAngles.z, Is.EqualTo(30f).Within(0.01f));
         }
 
+
+        /// <summary>
+        /// The actual Game loader uses translated ExtendSlideDrop for
+        /// straight, curved and chained SLIDEs; its EACH visuals must match
+        /// native slide arrows and moving guide STARs.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachTranslatedSlide_UsesNormalSkinAndYellowOutline()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var slide = CreateSlide(ThreeAreas(), SlideOkType.StraightL,
+                conditionalLastArrow: false, isEach: true);
+            yield return null;
+
+            var firstArrow = slide.transform.GetChild(0).GetComponent<SpriteRenderer>();
+            var movingStar = _rig.SlideStar(0).GetComponent<SpriteRenderer>();
+            Assert.That(firstArrow.sprite.name, Is.EqualTo("Slide"));
+            Assert.That(movingStar.sprite.name, Is.EqualTo("Star"));
+
+            slide.SetActive(true);
+            var yellow = Resources.Load<Material>("Airshift/EachSilhouette");
+            Assert.That(yellow, Is.Not.Null);
+            foreach (var original in new[] { firstArrow, movingStar })
+            {
+                var layer = original.transform.Find("AIRSHIFT_EachYellowOutline");
+                Assert.That(layer, Is.Not.Null);
+                Assert.That(layer!.GetComponent<SpriteRenderer>().sharedMaterial,
+                    Is.SameAs(yellow));
+                Assert.That(layer.GetComponent<SpriteRenderer>().sprite,
+                    Is.SameAs(original.sprite));
+            }
+        }
+
         /// <summary>Checks that a conditional last arrow is left out and a two-area queue makes its first area mandatory.</summary>
         /// <returns>The test coroutine.</returns>
         [UnityTest]
@@ -502,9 +535,11 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
         private ExtendSlideDrop CreateSlide(ParsingSlideArea[] areas,
                                             SlideOkType okType,
                                             bool conditionalLastArrow,
-                                            SlideTable? predefinedTable = null)
+                                            SlideTable? predefinedTable = null,
+                                            bool isEach = false)
         {
             var slide = Spawn();
+            slide.IsEach = isEach;
             var start = NoteHelper.GetTapPosition(1, 4.8f);
             var end = NoteHelper.GetTapPosition(3, 4.8f);
             var poses = new SlidePose[6];
