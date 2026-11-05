@@ -439,7 +439,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                                     rightArea,
                                     wifiArea,
                                     useVirtualCenter,
-                                wifiGame is not null ? x : -1);
+                                    wifiGame is not null ? x : -1);
 
                                 second.Check(area, sensorState);
                             }
