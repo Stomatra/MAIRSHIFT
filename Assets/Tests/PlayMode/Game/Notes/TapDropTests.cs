@@ -174,6 +174,41 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
                 Is.EqualTo("Star_Ex"));
         }
 
+        /// <summary>AIRSHIFT Each STAR keeps the user's Normal skin and adds a separate yellow silhouette.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachStar_UsesNormalSkinWithReusableYellowOutline()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var star = _rig.SpawnTap(GameplayRig.TapInfo(
+                isStar: true, isEach: true, requiredHand: AirshiftRequiredHand.Left));
+            yield return null;
+
+            var body = star.GetComponent<SpriteRenderer>();
+            var outlineTransform = star.transform.Find("AIRSHIFT_EachYellowOutline");
+            Assert.That(body.sprite.name, Is.EqualTo("Star"));
+            Assert.That(star.IsEach, Is.True, "Judgment grouping must remain intact.");
+            Assert.That(outlineTransform, Is.Not.Null);
+            var outline = outlineTransform!.GetComponent<SpriteRenderer>();
+            Assert.That(outline.sprite, Is.SameAs(body.sprite));
+            Assert.That(outline.sharedMaterial, Is.SameAs(Resources.Load<Material>("Airshift/EachSilhouette")));
+            Assert.That(outline.transform.localScale.x, Is.GreaterThan(1f));
+            Assert.That(body.color, Is.EqualTo(AirshiftNoteVisualPalette.Multiply(
+                _rig.TapTemplate.GetComponent<SpriteRenderer>().color,
+                AirshiftNoteVisualPalette.Left)));
+        }
+
+        /// <summary>STANDARD Each STAR still uses its exact imported Each skin and no border.</summary>
+        [UnityTest]
+        public IEnumerator StandardEachStar_PreservesOriginalEachSkin()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var star = _rig.SpawnTap(GameplayRig.TapInfo(isStar: true, isEach: true));
+            yield return null;
+
+            Assert.That(star.GetComponent<SpriteRenderer>().sprite.name, Is.EqualTo("Star_Each"));
+            Assert.That(star.transform.Find("AIRSHIFT_EachYellowOutline"), Is.Null);
+        }
+
         /// <summary>STANDARD mode must ignore AIRSHIFT-only hand tint metadata.</summary>
         [UnityTest]
         public IEnumerator StandardStar_DoesNotUseHandedTint()
