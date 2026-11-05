@@ -3,6 +3,7 @@ using MajdataPlay.IO;
 using MajdataPlay.Scenes.Game.Notes;
 using MajdataPlay.Scenes.Game.Notes.Behaviours;
 using MajdataPlay.Scenes.Game.Utils;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Settings;
 using MajdataPlay.Tests;
 using MajdataPlay.Tests.Game.Notes.PlayMode.Support;
@@ -88,6 +89,40 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
 
             wifi.Init();
             Assert.That(wifi.State, Is.EqualTo(NoteStatus.Inited));
+        }
+
+
+        /// <summary>
+        /// Two high-density WIFI notes may share the same timing and
+        /// only two physical controllers. They remain separate note
+        /// objects with independent three-lane judge queues. Neither
+        /// instance acquires exclusive ownership of a physical hand.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TwoConcurrentWifisRetainIndependentThreeLaneQueues()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var first = CreateWifi(startPos: 1);
+            var second = CreateWifi(startPos: 5);
+            yield return null;
+
+            Assert.That(first, Is.Not.SameAs(second));
+            Assert.That(first.StartPos, Is.EqualTo(1));
+            Assert.That(second.StartPos, Is.EqualTo(5));
+            Assert.That(first.Timing, Is.EqualTo(second.Timing));
+            Assert.That(first.QueueRemaining, Is.EqualTo(4));
+            Assert.That(second.QueueRemaining, Is.EqualTo(4));
+            Assert.That(_rig.SlideStarCount, Is.EqualTo(6));
+
+            // Touching an outer path in either WIFI never allocates
+            // a left/right owner; both hands remain eligible for
+            // the next region of either independent slide.
+            Assert.That(AirshiftWifiLaneHandPolicy.IsOuterLanePressed(
+                0, AirshiftSensorArea.B8,
+                AirshiftSensorArea.B8, AirshiftSensorArea.None), Is.True);
+            Assert.That(AirshiftWifiLaneHandPolicy.IsOuterLanePressed(
+                2, AirshiftSensorArea.B6,
+                AirshiftSensorArea.B8, AirshiftSensorArea.B6), Is.True);
         }
 
         /// <summary>Checks the bar and star sprites and the break material for every wifi variant.</summary>
