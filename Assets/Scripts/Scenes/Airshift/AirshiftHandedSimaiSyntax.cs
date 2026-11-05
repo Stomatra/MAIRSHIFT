@@ -117,11 +117,13 @@ namespace MajdataPlay.Scenes.Airshift
                 var beatNotes = sameBeatNotes[beatKey];
                 // A strictly identical pair is the only same-beat/same-area
                 // duplicate that can be bound without ambiguous source identity.
-                if (beatNotes.Count > 1 && !IsOppositeHandStarPair(beatNotes))
+                if (beatNotes.Count > 1 &&
+                    !IsOppositeHandStarPair(beatNotes) &&
+                    !IsOppositeHandTouchPair(beatNotes))
                 {
                     throw new FormatException(
                         "AIRSHIFT same-beat overlapping notes require exactly one L and one R " +
-                        "standalone STAR of the same variant: " + key);
+                        "of the same ordinary TOUCH or standalone STAR variant: " + key);
                 }
 
                 validPrefixes.Add(match.Index);
@@ -176,6 +178,36 @@ namespace MajdataPlay.Scenes.Airshift
             var second = notes[1].Groups["hand"].Value;
             return first == "L" && second == "R" ||
                    first == "R" && second == "L";
+        }
+
+        /// <summary>
+        /// Accept only plain, unmodified TOUCH tokens with one left and one
+        /// right prefix. Firework and special variants are deliberately excluded.
+        /// </summary>
+        private static bool IsOppositeHandTouchPair(IReadOnlyList<Match> notes)
+        {
+            if (notes.Count != 2 ||
+                !notes[0].Groups["touch"].Success ||
+                !notes[1].Groups["touch"].Success)
+            {
+                return false;
+            }
+
+            var firstToken = notes[0].Groups["token"].Value;
+            var secondToken = notes[1].Groups["token"].Value;
+            if (firstToken != secondToken ||
+                firstToken.EndsWith("f", StringComparison.Ordinal) ||
+                firstToken.EndsWith("b", StringComparison.Ordinal) ||
+                firstToken.EndsWith("x", StringComparison.Ordinal) ||
+                firstToken.EndsWith("m", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var firstHand = notes[0].Groups["hand"].Value;
+            var secondHand = notes[1].Groups["hand"].Value;
+            return firstHand == "L" && secondHand == "R" ||
+                   firstHand == "R" && secondHand == "L";
         }
 
         private static string GetSourceKey(Match match)

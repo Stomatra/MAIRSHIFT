@@ -81,8 +81,45 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
         [TestCase("(120){4}L1$$/R1$,E")]
         [TestCase("(120){4}L1$/1$,E")]
         [TestCase("(120){4}L1$/R1$/1$,E")]
-        [TestCase("(120){4}LA1/RA1,E")]
         public void GameSyntax_RejectsAmbiguousSameBeatSameAreaNotes(string source)
+        {
+            Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(source));
+        }
+
+
+        /// <summary>Opposite-handed plain TOUCHes are allowed at one area and time.</summary>
+        [TestCase("(120){4}LA1/RA1,E", "(120){4}A1/A1,E")]
+        [TestCase("(120){4}RB3/LB3,E", "(120){4}B3/B3,E")]
+        [TestCase("(120){4}LC/RC,E", "(120){4}C/C,E")]
+        public void GameSyntax_SamePositionOppositeHandTouchesRemainSeparate(string source, string stripped)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText, Is.EqualTo(stripped));
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            var notes = FlattenNotes(chart).Where(n => n.Type == SimaiNoteType.Touch).ToArray();
+
+            Assert.That(notes, Has.Length.EqualTo(2));
+            Assert.That(notes[0], Is.Not.SameAs(notes[1]));
+            Assert.That(bindings.Count, Is.EqualTo(2));
+            Assert.That(bindings[notes[0]], Is.EqualTo(
+                source.Contains("LA1") || source.Contains("LC") ?
+                    AirshiftRequiredHand.Left : AirshiftRequiredHand.Right));
+            Assert.That(bindings.Values, Is.EquivalentTo(new[]
+            {
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right
+            }));
+        }
+
+        /// <summary>Ambiguous same-sensor TOUCH twins remain invalid.</summary>
+        [TestCase("(120){4}LA1/LA1,E")]
+        [TestCase("(120){4}RA1/RA1,E")]
+        [TestCase("(120){4}LA1/A1,E")]
+        [TestCase("(120){4}LA1/RA1/LA1,E")]
+        [TestCase("(120){4}LC/RC/C,E")]
+        [TestCase("(120){4}LA1f/RA1f,E")]
+        public void GameSyntax_RejectsAmbiguousSameAreaTouches(string source)
         {
             Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(source));
         }

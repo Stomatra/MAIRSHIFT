@@ -58,6 +58,24 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
             }
         }
 
+        /// <summary>Independent same-sensor TOUCH entries used only by AIRSHIFT hand pairs.</summary>
+        private readonly Dictionary<(SensorArea Area, long Index), AirshiftTouchPair> _airshiftTouchPairs = new();
+
+        /// <summary>Tracks one exact pair without changing the ordinary touch queue.</summary>
+        private sealed class AirshiftTouchPair
+        {
+            internal readonly long FirstIndex;
+            internal readonly long SecondIndex;
+            internal bool FirstDone;
+            internal bool SecondDone;
+
+            internal AirshiftTouchPair(long firstIndex, long secondIndex)
+            {
+                FirstIndex = firstIndex;
+                SecondIndex = secondIndex;
+            }
+        }
+
         readonly int[] _noteCurrentIndex = new int[8];
         readonly int[] _touchCurrentIndex = new int[33];
 
@@ -312,6 +330,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
             Array.Fill(_noteCurrentIndex, 0);
             Array.Fill(_touchCurrentIndex, 0);
             _airshiftStarPairs.Clear();
+            _airshiftTouchPairs.Clear();
         }
         public void ResetCounter()
         {
@@ -324,6 +343,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
                 _touchCurrentIndex[i] = 0;
             }
             _airshiftStarPairs.Clear();
+            _airshiftTouchPairs.Clear();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         void GameIOUpdate()
@@ -462,6 +482,25 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
                    pair.SecondIndex == index &&
                    !pair.SecondDone;
         }
+        /// <summary>
+        /// Allows a right/left TOUCH pair to be judged in either order while
+        /// preserving sensor FIFO for every subsequent note.
+        /// </summary>
+        internal void RegisterAirshiftTouchPair(TouchQueueInfo first, TouchQueueInfo second)
+        {
+            if (first.SensorPos < SensorArea.A1 || first.SensorPos > SensorArea.E8 ||
+                second.SensorPos != first.SensorPos ||
+                second.Index != first.Index + 1)
+            {
+                throw new ArgumentException(
+                    "AIRSHIFT overlapping TOUCH requires adjacent same-sensor queue entries.");
+            }
+
+            var pair = new AirshiftTouchPair(first.Index, second.Index);
+            _airshiftTouchPairs.Add((first.SensorPos, first.Index), pair);
+            _airshiftTouchPairs.Add((second.SensorPos, second.Index), pair);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsCurrentNoteJudgeable(in TouchQueueInfo queueInfo)
         {
@@ -474,7 +513,15 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
             var index = queueInfo.Index;
             var currentIndex = _touchCurrentIndex[pos];
 
-            return index <= currentIndex;
+            if (index <= currentIndex)
+            {
+                return true;
+            }
+
+            return _airshiftTouchPairs.TryGetValue((sensorPos, index), out var pair) &&
+                   pair.FirstIndex == currentIndex &&
+                   pair.SecondIndex == index &&
+                   !pair.SecondDone;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void NextNote(in TapQueueInfo queueInfo)
@@ -534,6 +581,42 @@ namespace MajdataPlay.Scenes.Game.Notes.Controllers
             }
             var pos = (int)sensorPos;
             ref var currentIndex = ref _touchCurrentIndex[pos];
+
+            if (_airshiftTouchPairs.TryGetValue((sensorPos, queueInfo.Index), out var pair))
+            {
+                if (queueInfo.Index == pair.FirstIndex)
+                {
+                    if (pair.FirstDone)
+                    {
+                        return;
+                    }
+
+                    pair.FirstDone = true;
+                    if (currentIndex == pair.FirstIndex)
+                    {
+                        currentIndex++;
+                        if (pair.SecondDone)
+                        {
+                            currentIndex++;
+                        }
+                    }
+                }
+                else
+                {
+                    if (pair.SecondDone)
+                    {
+                        return;
+                    }
+
+                    pair.SecondDone = true;
+                    if (currentIndex == pair.SecondIndex)
+                    {
+                        currentIndex++;
+                    }
+                }
+
+                return;
+            }
 
             currentIndex++;
         }
