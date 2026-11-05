@@ -209,6 +209,13 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
             var left = _rig.SpawnTouch(GameplayRig.TouchInfo(
                 SensorArea.E3, timing: 1f, requiredHand: AirshiftRequiredHand.Left, index: 0));
+            // The TOUCH point/border may have a different prefab-selected
+            // material than the fans; capture each original explicitly.
+            var originals = new Material[6];
+            for (var child = 0; child <= 5; child++)
+            {
+                originals[child] = left.transform.GetChild(child).GetComponent<SpriteRenderer>().sharedMaterial;
+            }
             var right = _rig.SpawnTouch(GameplayRig.TouchInfo(
                 SensorArea.E3, timing: 1f, requiredHand: AirshiftRequiredHand.Right, index: 1));
             yield return null;
@@ -220,7 +227,7 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             for (var child = 0; child <= 5; child++)
             {
                 Assert.That(right.transform.GetChild(child).GetComponent<SpriteRenderer>().sharedMaterial,
-                    Is.SameAs(_rig.DefaultMaterial));
+                    Is.SameAs(originals[child]));
             }
         }
 
