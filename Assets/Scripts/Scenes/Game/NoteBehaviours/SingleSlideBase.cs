@@ -2,6 +2,7 @@
 using MajdataPlay.Diagnostics;
 using MajdataPlay.Editor;
 using MajdataPlay.Numerics;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game.Notes.Slide;
 using MajdataPlay.Scenes.Game.Utils;
 using MajdataPlay.Settings;
@@ -26,6 +27,12 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         protected SlideTable Table;
 
         protected float DJAutoplayRatio = 1;
+
+        private Color HandedStarColor(float alpha)
+        {
+            var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
+            return new Color(tint.r, tint.g, tint.b, alpha);
+        }
 
         protected static readonly Quaternion s_Z180Rotation = Quaternion.Euler(0f, 0f, 180f);
 
@@ -60,7 +67,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                                 SetStarActive(true);
                             }
 
-                            StarRenderer.color = new Color(1, 1, 1, 0);
+                            StarRenderer.color = HandedStarColor(0f);
                             starTransform.localScale = new Vector3(0, 0, 1);
                             NoteHelper.Sorting.SetPosition(starTransform, StarPositions[0]);
                             ApplyStarRotation(StarRotations[0]);
@@ -72,7 +79,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         var timing = ThisFrameSec - StartTiming;
                         if (timing > 0f)
                         {
-                            StarRenderer.color = new Color(1, 1, 1, 1);
+                            StarRenderer.color = HandedStarColor(1f);
                             if (!IsSlideNoHead)
                             {
                                 starTransform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
@@ -93,7 +100,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                         // 只有当它是一个起点Slide（而非Slide Group中的子部分）的时候，才会有开始的星星渐入动画
                         var alpha = (1f - -timing / (StartTiming - Timing)).Clamp(0, 1);
 
-                        StarRenderer.color = new Color(1, 1, 1, alpha);
+                        StarRenderer.color = HandedStarColor(alpha);
                         if (IsClassic)
                         {
                             var scale = 1 + alpha / 2;
@@ -415,7 +422,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
             foreach (var renderer in barRenderers)
             {
-                renderer.color = new Color(1f, 1f, 1f, 0f);
+                renderer.color = HandedStarColor(0f);
                 NoteHelper.Sorting.Apply(renderer, NoteHelper.Sorting.NoteLayer.Slides, SortOrder--);
 
                 renderer.sprite = barSprite;

@@ -59,6 +59,34 @@ namespace MajdataPlay.Scenes.Game
                 ? hand : AirshiftRequiredHand.Any;
         }
 
+        /// <summary>Carry exact L/R slide identity across the original NoteFolding process.</summary>
+        private AirshiftRequiredHand RequiredHandForFoldedSlide(FoldedSimaiNote folded, SimaiNote[] sourceNotes)
+        {
+            if (HandBindings is null) return AirshiftRequiredHand.Any;
+            var assigned = AirshiftRequiredHand.Any;
+            foreach (var source in sourceNotes)
+            {
+                if (source.Type != SimaiNoteType.Slide ||
+                    source.StartPosition != folded.StartPosition ||
+                    source.RawContent != folded.RawContent)
+                    continue;
+                var hand = RequiredHandFor(source);
+                if (hand == AirshiftRequiredHand.Any) continue;
+                if (assigned != AirshiftRequiredHand.Any || folded.Count != 1)
+                    throw new FormatException("AIRSHIFT cannot hand-bind folded duplicate SLIDE.");
+                assigned = hand;
+            }
+            return assigned;
+        }
+
+        private AirshiftRequiredHand RequiredHandForSlideStar(SimaiNote note) =>
+            note switch
+            {
+                FoldedSimaiNote folded => folded.RequiredHand,
+                SubSlideNote segment => segment.RequiredHand,
+                _ => RequiredHandFor(note)
+            };
+
         /// <summary>
         /// Gets or sets how the arrows of a translated simai connection slide are placed along its segments. Slides
         /// written as slide code and simai slides with a single segment do not depend on it. The game and view scenes
@@ -425,6 +453,7 @@ namespace MajdataPlay.Scenes.Game
                                         TouchArea = note.TouchArea,
                                         Count = 1
                                     };
+                                    foldedSlide.RequiredHand = RequiredHandForFoldedSlide(foldedSlide, timing.Notes);
                                     if (SimaiSlideTranslator.IsSingleSlideCode(foldedSlide.RawContent))
                                     {
                                         CreateExtendSlide(timing, foldedSlide, eachNotes);
@@ -794,6 +823,7 @@ namespace MajdataPlay.Scenes.Game
                     IsMine = note.IsMine,
                     IsStar = true,
                     IsDouble = isDouble,
+                    RequiredHand = RequiredHandForSlideStar(note),
                     RotateSpeed = -180 / (float)note.SlideTime,
                     QueueInfo = queueInfo ?? TapQueueInfo.Default
                 };
@@ -1113,6 +1143,7 @@ namespace MajdataPlay.Scenes.Game
                         }
                         sb.Clear();
                         var slidePart = new SubSlideNote();
+                        slidePart.RequiredHand = note.RequiredHand;
                         slidePart.Type = SimaiNoteType.Slide;
                         slidePart.StartPosition = latestStartIndex;
                         var slideTypeChar = string.Empty;
@@ -1502,6 +1533,7 @@ namespace MajdataPlay.Scenes.Game
             }
 
             sliCompo.ConnectInfo = info;
+            sliCompo.RequiredHand = note.RequiredHand;
             sliCompo.IsBreak = note.IsSlideBreak;
             sliCompo.IsEach = !isMine && (isEach || multiple > 1);
             sliCompo.IsMirror = isMirror;
@@ -1581,6 +1613,7 @@ namespace MajdataPlay.Scenes.Game
                 }
             }
 
+            WifiCompo.RequiredHand = note.RequiredHand;
             WifiCompo.IsBreak = note.IsSlideBreak;
             WifiCompo.IsEach = !isMine && (isEach || multiple > 1);
             WifiCompo.IsMine = isMine;
@@ -1708,6 +1741,7 @@ namespace MajdataPlay.Scenes.Game
             }
 
             extendSlide.Metadata = slideMetadata;
+            extendSlide.RequiredHand = note.RequiredHand;
             extendSlide.PredefinedTable = predefinedTable;
             extendSlide.SlideCode = rotatedCode;
             // 判定时用 StartTiming 判断星星是否已经出发，与原来的 simai 星星一致
@@ -2657,10 +2691,12 @@ namespace MajdataPlay.Scenes.Game
         class FoldedSimaiNote : SimaiNote
         {
             public int Count { get; init; }
+            public AirshiftRequiredHand RequiredHand { get; set; } = AirshiftRequiredHand.Any;
         }
         class SubSlideNote : SimaiNote
         {
             public SimaiNote Origin { get; set; } = new();
+            public AirshiftRequiredHand RequiredHand { get; set; } = AirshiftRequiredHand.Any;
         }
         readonly struct CreateSlideResult<T> where T : SlideBase
         {

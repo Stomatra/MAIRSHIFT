@@ -39,7 +39,7 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
         public void GameSyntax_RejectsUnsupportedHandedSlidesAndIdenticalDoubles()
         {
             Assert.Throws<FormatException>(() =>
-                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1-5[8:1],E"));
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1q5[8:1],E"));
             Assert.Throws<FormatException>(() =>
                 AirshiftHandedSimaiSyntax.Preprocess("(120){4}R1h[4:1],E"));
             Assert.Throws<FormatException>(() =>
@@ -137,6 +137,44 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             Assert.That(bindings.ContainsKey(notes[0]), Is.False);
             Assert.That(bindings[notes[1]], Is.EqualTo(AirshiftRequiredHand.Left));
             Assert.That(bindings[notes[2]], Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
+
+        /// <summary>Handed single straight SLIDE maps to the original parsed Slide note.</summary>
+        [TestCase("(120){4}L1-5[8:1],E", "(120){4}1-5[8:1],E", AirshiftRequiredHand.Left)]
+        [TestCase("(120){4}R3-7[8:1],E", "(120){4}3-7[8:1],E", AirshiftRequiredHand.Right)]
+        public void GameSyntax_StraightSlideBindsHand(string source, string output, AirshiftRequiredHand hand)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText, Is.EqualTo(output));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(1));
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            var slides = FlattenNotes(chart).Where(note => note.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(slides, Has.Length.EqualTo(1));
+            Assert.That(bindings.Count, Is.EqualTo(1));
+            Assert.That(bindings[slides[0]], Is.EqualTo(hand));
+        }
+
+        /// <summary>Source occurrences preserve the right marker even after an ordinary slide.</summary>
+        [Test]
+        public void GameSyntax_StraightSlideAfterOrdinarySlideKeepsMarkerIdentity()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}1-5[8:1],L1-5[8:1],E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart).Where(note => note.Type == SimaiNoteType.Slide).ToArray();
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(slides, Has.Length.EqualTo(2));
+            Assert.That(bindings.ContainsKey(slides[0]), Is.False);
+            Assert.That(bindings[slides[1]], Is.EqualTo(AirshiftRequiredHand.Left));
+        }
+
+        /// <summary>Same-beat, same-origin slide duplication is not a supported v1 syntax.</summary>
+        [TestCase("(120){4}L1-5[8:1]/R1-5[8:1],E")]
+        [TestCase("(120){4}L1-5[8:1]/1-5[8:1],E")]
+        public void GameSyntax_RejectsAmbiguousStraightSlideTwins(string source)
+        {
+            Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(source));
         }
 
         [Test]

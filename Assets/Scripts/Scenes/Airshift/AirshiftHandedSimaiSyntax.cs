@@ -15,7 +15,7 @@ namespace MajdataPlay.Scenes.Airshift
         // Include unprefixed simple TAPs and TOUCHes in the source ordinals:
         // 1 before L1$ must not cause L1$ to target that earlier 1.
         private static readonly Regex NoteToken = new(
-            @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?<star>[1-8]\$\$?)|(?<tap>[1-8][bxm]?)|(?<touch>(?:[ABDE][1-8]|C)[fbxm]?))(?=[,/\x60\s]|$)",
+            @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?<slide>[1-8]-[1-8]\[[0-9]+:[0-9]+\])|(?<star>[1-8]\$\$?)|(?<tap>[1-8][bxm]?)|(?<touch>(?:[ABDE][1-8]|C)[fbxm]?))(?=[,/\x60\s]|$)",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         // Catch unsupported prefixes such as L1h, R1-5, LA1h, etc.
@@ -30,14 +30,16 @@ namespace MajdataPlay.Scenes.Airshift
             internal int Occurrence { get; }
             internal AirshiftRequiredHand RequiredHand { get; }
             internal bool IsStar { get; }
+            internal bool IsSlide { get; }
 
-            internal Marker(string token, string key, int occurrence, AirshiftRequiredHand requiredHand, bool isStar)
+            internal Marker(string token, string key, int occurrence, AirshiftRequiredHand requiredHand, bool isStar, bool isSlide)
             {
                 Token = token;
                 Key = key;
                 Occurrence = occurrence;
                 RequiredHand = requiredHand;
                 IsStar = isStar;
+                IsSlide = isSlide;
             }
         }
 
@@ -105,12 +107,13 @@ namespace MajdataPlay.Scenes.Airshift
                 var token = match.Groups["token"].Value;
                 var isStar = match.Groups["star"].Success;
                 var isTouch = match.Groups["touch"].Success;
-                if (!isStar && (!isTouch || token.EndsWith("b", StringComparison.Ordinal) ||
+                var isSlide = match.Groups["slide"].Success;
+                if (!isSlide && !isStar && (!isTouch || token.EndsWith("b", StringComparison.Ordinal) ||
                     token.EndsWith("x", StringComparison.Ordinal) ||
                     token.EndsWith("m", StringComparison.Ordinal)))
                 {
                     throw new FormatException(
-                        "AIRSHIFT hand prefix only supports standalone stars and ordinary TOUCH: " + prefix + token);
+                        "AIRSHIFT hand prefix supports standalone STAR, plain TOUCH or one-segment straight SLIDE: " + prefix + token);
                 }
 
                 var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
@@ -132,7 +135,8 @@ namespace MajdataPlay.Scenes.Airshift
                     key,
                     index,
                     prefix == "L" ? AirshiftRequiredHand.Left : AirshiftRequiredHand.Right,
-                    isStar));
+                    isStar,
+                    isSlide));
                 output.Append(fumen, previous, match.Index - previous);
                 output.Append(token);
                 previous = match.Index + match.Length;
@@ -144,7 +148,7 @@ namespace MajdataPlay.Scenes.Airshift
                 {
                     throw new FormatException(
                         "Unsupported AIRSHIFT hand prefix at chart character " + possible.Index +
-                        ". First version supports L/R + 1$/1$$ or ordinary TOUCH (A1/B3/C).");
+                        ". Supported: L/R + 1$/1$, plain TOUCH (A1/B3/C), straight SLIDE (1-5[8:1]).");
                 }
             }
 
@@ -213,6 +217,7 @@ namespace MajdataPlay.Scenes.Airshift
         private static string GetSourceKey(Match match)
         {
             var token = match.Groups["token"].Value;
+            if (match.Groups["slide"].Success) return "S:A" + token[0];
             if (match.Groups["tap"].Success || match.Groups["star"].Success)
             {
                 return "T:A" + token[0];
@@ -280,10 +285,11 @@ namespace MajdataPlay.Scenes.Airshift
             {
                 var note = buckets[marker.Key][marker.Occurrence];
                 if (marker.IsStar && (note.Type != SimaiNoteType.Tap || !note.IsForceStar) ||
-                    !marker.IsStar && note.Type != SimaiNoteType.Touch)
+                    marker.IsSlide && (note.Type != SimaiNoteType.Slide || note.RawContent != marker.Token) ||
+                    !marker.IsStar && !marker.IsSlide && note.Type != SimaiNoteType.Touch)
                 {
                     throw new FormatException(
-                        "AIRSHIFT hand tag does not match the parsed STAR/TOUCH kind: " +
+                        "AIRSHIFT hand tag does not match the parsed STAR/TOUCH/SLIDE content: " +
                         marker.Token);
                 }
                 bindings.Add(note, marker.RequiredHand);
@@ -293,6 +299,7 @@ namespace MajdataPlay.Scenes.Airshift
 
         private static string? GetGameKey(SimaiNote note)
         {
+            if (note.Type == SimaiNoteType.Slide) return "S:A" + note.StartPosition;
             if (note.Type == SimaiNoteType.Tap)
             {
                 return "T:A" + note.StartPosition;
