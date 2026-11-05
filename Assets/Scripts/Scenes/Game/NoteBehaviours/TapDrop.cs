@@ -36,6 +36,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 
 
         SpriteRenderer _thisRenderer;
+        SpriteRenderer? _airshiftEachOutline;
         SpriteRenderer _exRenderer;
         SpriteRenderer _tapLineRenderer;
         NotePoolManager _notePoolManager;
@@ -129,6 +130,11 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 IsStar ? RequiredHand : AirshiftRequiredHand.Any,
                 ModInfo.AirshiftEnabled);
             _thisRenderer.color = AirshiftNoteVisualPalette.Multiply(_defaultNoteColor, tint);
+            // All AIRSHIFT STAR multi-press notes keep the ordinary skin body.
+            // The yellow cue is a separate silhouette behind that body.
+            AirshiftEachOutline.Sync(
+                ref _airshiftEachOutline, _thisRenderer,
+                ModInfo.AirshiftEnabled && IsStar && IsEach);
             SetActiveWithoutRenderer(true);
 
             State = NoteStatus.Inited;
@@ -424,6 +430,9 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         private void SetNoteRendererActive(bool state)
         {
             _thisRenderer.enabled = state;
+            AirshiftEachOutline.Sync(
+                ref _airshiftEachOutline, _thisRenderer,
+                state && ModInfo.AirshiftEnabled && IsStar && IsEach);
         }
         private void SetExRendererActive(bool state)
         {
@@ -487,6 +496,9 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         }
         private void LoadStarSkin()
         {
+            // Each is still used by judgment and grouping; only its old
+            // skin-based highlight is suppressed for AIRSHIFT STAR bodies.
+            var useSkinEach = IsEach && !ModInfo.AirshiftEnabled;
             var skin = MajInstances.SkinManager.GetStarSkin();
             _thisRenderer.sharedMaterial = DefaultMaterial;
             _exRenderer.color = skin.ExEffects[0];
@@ -527,7 +539,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                     _thisRenderer.sprite = skin.Double;
                     _exRenderer.sprite = skin.ExDouble;
 
-                    if (IsEach)
+                    if (useSkinEach)
                     {
                         _thisRenderer.sprite = skin.EachDouble;
                         _tapLineRenderer.sprite = skin.GuideLines[1];
@@ -546,7 +558,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                     _thisRenderer.sprite = skin.Normal;
                     _exRenderer.sprite = skin.Ex;
 
-                    if (IsEach)
+                    if (useSkinEach)
                     {
                         _thisRenderer.sprite = skin.Each;
                         _tapLineRenderer.sprite = skin.GuideLines[1];
