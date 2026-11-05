@@ -819,6 +819,9 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 // the blue/red source tint or the source's break material.
                 SyncSlideBarEachOutline(i, sr);
             }
+            // Some visual effects replace sharedMaterial. Keep the
+            // independent overlapping SLIDE half-shader applied.
+            AirshiftSlideOverlapRegistry.RefreshBars(this);
         }
         [Il2CppSetOption(Option.NullChecks, false)]
         [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
