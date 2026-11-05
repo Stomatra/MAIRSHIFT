@@ -22,6 +22,7 @@ ordinary Simai notes:
 | `L1p4[8:1]` | Blue curved SLIDE, left hand required |
 | `R1V35[8:1]` | Red turning SLIDE, right hand required |
 | `L1-4[8:1]q7[8:1]` | Blue chained SLIDE, left hand required |
+| `L1-4[8:1]*R1-6[8:1]` | Independent two-hand parallel SLIDEs, one L and one R |
 | `1$`, `A1`, `C` | Original Simai notes, either hand |
 
 Example Master chart:
@@ -144,6 +145,7 @@ ordinary Simai notes:
 | `L1p4[8:1]` | Blue curved SLIDE, left hand required |
 | `R1V35[8:1]` | Red turning SLIDE, right hand required |
 | `L1-4[8:1]q7[8:1]` | Blue chained SLIDE, left hand required |
+| `L1-4[8:1]*R1-6[8:1]` | Independent two-hand parallel SLIDEs, one L and one R |
 | `1$`, `A1`, `C` | Original Simai notes, either hand |
 
 Example Master chart:

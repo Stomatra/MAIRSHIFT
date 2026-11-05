@@ -30,8 +30,10 @@ virtual midpoint). Assigning a single mandatory hand to all three lanes
 would make an otherwise valid WIFI impossible to judge. Accordingly
 `L1w5[8:1]` and `R3w7[8:1]` are **explicitly rejected** in this
 version; ordinary untagged WIFI remains unchanged and functional.
-Parallel `*` branch syntax is also excluded until we can map every
-branch independently. No one-flick shortcut is introduced.
+Draft PR #15 allows explicit two-hand parallel paths such as
+`L1-4[8:1]*R1-6[8:1]`. The source is normalized to two independent
+same-time, same-start slides (one L and one R). Untagged '*' remains
+original Simai. There is no one-flick shortcut.
 
 ## Testing
 

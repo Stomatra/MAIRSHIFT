@@ -14,6 +14,126 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
     /// <summary>Verifies the Task 006 chart, judgement, score, and persistence isolation.</summary>
     public class AirshiftChartPlayTests
     {
+
+        /// <summary>
+        /// Original untagged '*' branches expand into multiple parsed SLIDEs.
+        /// Their contribution must be counted before binding later L/R
+        /// markers on the same A-key, not just for an isolated chart.
+        /// </summary>
+        [Test]
+        public void GameSyntax_UnmarkedForkBeforeHandedForkDoesNotShiftBindings()
+        {
+            const string source =
+                "(120){4}L1-4[8:1]*R1-6[8:1]," +
+                "1-4-7[4:1]*-6[8:1]," +
+                "R1q4[8:1]*L1p4[8:1],E";
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SourceCounts["S:A1"], Is.EqualTo(6));
+
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart)
+                .Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(slides, Has.Length.EqualTo(6));
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(bindings.Count, Is.EqualTo(4));
+            Assert.That(bindings.ContainsKey(slides[2]), Is.False);
+            Assert.That(bindings.ContainsKey(slides[3]), Is.False);
+            Assert.That(bindings[slides[4]], Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(bindings[slides[5]], Is.EqualTo(AirshiftRequiredHand.Left));
+        }
+
+        /// <summary>
+        /// Regression for the 86-second PR #15 Master test chart that
+        /// previously failed on load: 14 source A1 slide tokens versus
+        /// 15 parsed A1 slides because of an ordinary '*' fork at 44s.
+        /// </summary>
+        [Test]
+        public void GameSyntax_ParallelSlideCheckMasterCountsExpandedFork()
+        {
+            const string source = "(120){4}" +
+                ",,,,,,,,L1-4[1:1]*R1-6[1:1]" +
+                ",,,,,,,,,,,,,,,,R1q4[1:1]*L1p4[1:1]" +
+                ",,,,,,,,,,,,,,,,L3-7[1:1]*R3-5[1:1]" +
+                ",,,,,,,,,,,,,,,,L1-4[1:1]*R1-6[2:1]" +
+                ",,,,,,,,,,,,,,,,R1-6[1:1]*L1-4[2:1]" +
+                ",,,,,,,,,,,,,,,,1-4-7[4:1]*-6[8:1]" +
+                ",,,,,,,,,,,,,,,,L1-4[1:1]" +
+                ",,,,,,,,,,,,,,,,R1-6[1:1]" +
+                ",,,,,,,,,,,,,,,,1-5[1:1]" +
+                ",,,,,,,,,,,,,,,,L1q4[1:1]*R1p4[1:1]" +
+                ",,,,,,,,,,,,,,,E";
+
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SourceCounts["S:A1"], Is.EqualTo(15));
+            Assert.That(syntax.SourceCounts["S:A3"], Is.EqualTo(2));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(14));
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var a1 = FlattenNotes(chart).Where(n =>
+                n.Type == SimaiNoteType.Slide && n.StartPosition == 1).ToArray();
+            var a3 = FlattenNotes(chart).Where(n =>
+                n.Type == SimaiNoteType.Slide && n.StartPosition == 3).ToArray();
+            Assert.That(a1, Has.Length.EqualTo(15));
+            Assert.That(a3, Has.Length.EqualTo(2));
+
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(bindings.Count, Is.EqualTo(14));
+            Assert.That(bindings[a1[a1.Length - 2]], Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[a1[a1.Length - 1]], Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
+
+        /// <summary>Two opposite hands trace two distinct same-origin SLIDEs.</summary>
+        [TestCase("(120){4}L1-4[8:1]*R1-6[8:1],E",
+                  "(120){4}1-4[8:1]/1-6[8:1],E")]
+        [TestCase("(120){4}R1q4[8:1]*L1p4[8:1],E",
+                  "(120){4}1q4[8:1]/1p4[8:1],E")]
+        public void GameSyntax_ParallelLrSlidesBindTwoSeparatePaths(
+            string source, string stripped)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText, Is.EqualTo(stripped));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(2));
+
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart).Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(slides, Has.Length.EqualTo(2));
+            Assert.That(slides[0], Is.Not.SameAs(slides[1]));
+            Assert.That(slides[0].StartPosition, Is.EqualTo(slides[1].StartPosition));
+            Assert.That(slides[0].RawContent, Is.Not.EqualTo(slides[1].RawContent));
+
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(bindings.Count, Is.EqualTo(2));
+            Assert.That(bindings[slides[0]], Is.EqualTo(
+                source[8] == 'L' ? AirshiftRequiredHand.Left : AirshiftRequiredHand.Right));
+            Assert.That(bindings.Values, Is.EquivalentTo(new[]
+            {
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right
+            }));
+        }
+
+        /// <summary>Ordinary unmarked Simai fork notation stays intact.</summary>
+        [Test]
+        public void GameSyntax_UnmarkedParallelSlideRemainsOriginal()
+        {
+            const string source = "(120){4}1-4[8:1]*-6[8:1],E";
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText, Is.EqualTo(source));
+            Assert.That(syntax.Markers.Count, Is.Zero);
+        }
+
+        /// <summary>One-hand, identical and ambiguous fork labels are rejected.</summary>
+        [TestCase("(120){4}L1-4[8:1]*L1-6[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]*R2-6[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]*R1-4[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]*R1w5[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]/R1-6[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]*R1-6[8:1]*L1-7[8:1],E")]
+        public void GameSyntax_RejectsAmbiguousParallelHandPairs(string source)
+        {
+            Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(source));
+        }
+
         [Test]
         public void GameSyntax_RecognizesHandedStarsAndTouchesOnlyInAirshift()
         {
