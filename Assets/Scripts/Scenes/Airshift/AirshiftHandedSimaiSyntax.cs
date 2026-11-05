@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
+using MajSimai;
 
 namespace MajdataPlay.Scenes.Airshift
 {
@@ -156,6 +157,91 @@ namespace MajdataPlay.Scenes.Airshift
 
             var area = token[0] == 'C' ? "C" : token.Substring(0, 2);
             return "C:" + area;
+        }
+
+        /// <summary>
+        /// Resolves hand-prefixed notes against the Simai objects used by the
+        /// existing Game scene. The original non-slide objects survive NoteFolding,
+        /// so the NoteLoader can transfer these bindings to its pooled notes.
+        /// No additional gameplay scene or duplicate judgment engine is needed.
+        /// </summary>
+        internal static IReadOnlyDictionary<SimaiNote, AirshiftRequiredHand> BindGameNotes(
+            SimaiChart chart,
+            Preprocessed syntax)
+        {
+            if (chart is null) throw new ArgumentNullException(nameof(chart));
+            if (syntax is null) throw new ArgumentNullException(nameof(syntax));
+            var bindings = new Dictionary<SimaiNote, AirshiftRequiredHand>();
+            if (syntax.Markers.Count == 0) return bindings;
+
+            var neededKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var marker in syntax.Markers)
+            {
+                neededKeys.Add(marker.Key);
+            }
+
+            var buckets = new Dictionary<string, List<SimaiNote>>(StringComparer.Ordinal);
+            foreach (var timing in chart.NoteTimings)
+            {
+                foreach (var note in timing.Notes)
+                {
+                    var key = GetGameKey(note);
+                    if (key is null || !neededKeys.Contains(key)) continue;
+
+                    if (!buckets.TryGetValue(key, out var notes))
+                    {
+                        notes = new List<SimaiNote>();
+                        buckets.Add(key, notes);
+                    }
+                    notes.Add(note);
+                }
+            }
+
+            // Validate before mutating any binding: mixed slide heads or other
+            // unusual parser output must not silently retag unrelated notes.
+            foreach (var key in neededKeys)
+            {
+                buckets.TryGetValue(key, out var notes);
+                var parsedCount = notes?.Count ?? 0;
+                var sourceCount = syntax.SourceCounts[key];
+                if (parsedCount != sourceCount)
+                {
+                    throw new FormatException(
+                        "AIRSHIFT Game chart mapping is ambiguous for " + key +
+                        ": " + sourceCount + " simple source notes versus " +
+                        parsedCount + " parsed TAP/TOUCH objects.");
+                }
+            }
+
+            foreach (var marker in syntax.Markers)
+            {
+                var note = buckets[marker.Key][marker.Occurrence];
+                if (marker.IsStar && (note.Type != SimaiNoteType.Tap || !note.IsForceStar) ||
+                    !marker.IsStar && note.Type != SimaiNoteType.Touch)
+                {
+                    throw new FormatException(
+                        "AIRSHIFT hand tag does not match the parsed STAR/TOUCH kind: " +
+                        marker.Token);
+                }
+                bindings.Add(note, marker.RequiredHand);
+            }
+            return bindings;
+        }
+
+        private static string? GetGameKey(SimaiNote note)
+        {
+            if (note.Type == SimaiNoteType.Tap)
+            {
+                return "T:A" + note.StartPosition;
+            }
+            if (note.Type != SimaiNoteType.Touch)
+            {
+                return null;
+            }
+            var area = char.ToUpperInvariant(note.TouchArea);
+            return area == 'C'
+                ? "C:C"
+                : "C:" + area + note.StartPosition;
         }
 
         /// <summary>
