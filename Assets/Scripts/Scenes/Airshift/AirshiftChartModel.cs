@@ -49,8 +49,7 @@ namespace MajdataPlay.Scenes.Airshift
         internal double StartTime { get; }
         internal double EndTime { get; }
         internal AirshiftSensorArea Area { get; }
-        internal bool IsSlideHead { get; set; }
-        internal AirshiftRequiredHand RequiredHand { get; set; } = AirshiftRequiredHand.Any;
+        internal bool IsSlideHead { get; }
         internal bool IsBreak { get; }
         internal bool IsEx { get; }
         internal bool IsMine { get; }
