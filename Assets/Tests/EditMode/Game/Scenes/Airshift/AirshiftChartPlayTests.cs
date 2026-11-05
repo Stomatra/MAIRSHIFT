@@ -55,7 +55,7 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
 
             Assert.That(bindings.Count, Is.EqualTo(4));
-            var marked = chart.NoteTimings.SelectMany(x => x.Notes)
+            var marked = FlattenNotes(chart)
                 .Where(bindings.ContainsKey).ToArray();
             Assert.That(marked.Count(n => n.Type == SimaiNoteType.Tap && n.IsForceStar), Is.EqualTo(2));
             Assert.That(marked.Count(n => n.Type == SimaiNoteType.Touch), Is.EqualTo(2));
@@ -69,7 +69,7 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
                 Is.EqualTo(AirshiftRequiredHand.Left));
             Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'B')],
                 Is.EqualTo(AirshiftRequiredHand.Right));
-            Assert.That(chart.NoteTimings.SelectMany(x => x.Notes).Count() - bindings.Count,
+            Assert.That(FlattenNotes(chart).Count() - bindings.Count,
                 Is.EqualTo(2), "Unprefixed notes remain unbound and accept either hand.");
         }
 
@@ -80,9 +80,9 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
             var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
 
-            var taps = chart.NoteTimings.SelectMany(x => x.Notes)
+            var taps = FlattenNotes(chart)
                 .Where(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1).ToArray();
-            var touches = chart.NoteTimings.SelectMany(x => x.Notes)
+            var touches = FlattenNotes(chart)
                 .Where(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'A').ToArray();
             Assert.That(taps.Length, Is.EqualTo(2));
             Assert.That(touches.Length, Is.EqualTo(2));
@@ -298,6 +298,23 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
                 new AirshiftScoreSnapshot(),
                 debugInput: true));
             Assert.That(directory.FindFile(AirshiftRecordStore.FileName), Is.Null);
+        }
+
+        /// <summary>
+        /// Materializes the parser's ReadOnlySpan-backed timing/note collections
+        /// before using LINQ. LINQ's SelectMany cannot enumerate ReadOnlySpan.
+        /// </summary>
+        private static SimaiNote[] FlattenNotes(SimaiChart chart)
+        {
+            var notes = new List<SimaiNote>();
+            foreach (var timing in chart.NoteTimings)
+            {
+                foreach (var note in timing.Notes)
+                {
+                    notes.Add(note);
+                }
+            }
+            return notes.ToArray();
         }
 
         private static AirshiftChart Chart(params AirshiftChartNote[] notes)
