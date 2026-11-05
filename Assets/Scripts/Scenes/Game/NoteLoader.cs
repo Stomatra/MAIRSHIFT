@@ -471,6 +471,15 @@ namespace MajdataPlay.Scenes.Game
                             {
                                 break;
                             }
+                            // AIRSHIFT shows multi-press on STAR silhouettes,
+                            // not on the legacy connecting Each line. Ordinary
+                            // TAP/HOLD combinations keep their existing behavior.
+                            if (_gpManager is { IsAirshiftMode: true } &&
+                                (eachNotes[x] is TapPoolingInfo { IsStar: true } ||
+                                 eachNotes[x + 1] is TapPoolingInfo { IsStar: true }))
+                            {
+                                continue;
+                            }
                             var eachLinePoolingInfo = CreateEachLine(timing, eachNotes[x]!, eachNotes[x + 1]!);
                             if (eachLinePoolingInfo is not null)
                             {
