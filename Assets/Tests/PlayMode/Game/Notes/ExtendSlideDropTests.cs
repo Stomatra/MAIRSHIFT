@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using MajdataPlay.IO;
 using MajdataPlay.Scenes.Game.Notes;
+using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game.Notes.Behaviours;
 using MajdataPlay.Scenes.Game.Notes.Slide;
 using MajdataPlay.Scenes.Game.Notes.Slide.Utils;
@@ -141,6 +142,48 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
                 Assert.That(layer.GetComponent<SpriteRenderer>().sprite,
                     Is.SameAs(original.sprite));
             }
+        }
+
+
+        /// <summary>
+        /// Production Game uses translated ExtendSlideDrop for typed L/R
+        /// paths. Two identical translated slides must split both tracks
+        /// and moving STARs, without changing their independent queues.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AirshiftFullyOverlappingTranslatedSlides_UseSplitMaterial()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = CreateSlide(ThreeAreas(), SlideOkType.StraightL,
+                conditionalLastArrow: false, isEach: true,
+                requiredHand: AirshiftRequiredHand.Left);
+            var right = CreateSlide(ThreeAreas(), SlideOkType.StraightL,
+                conditionalLastArrow: false, isEach: true,
+                requiredHand: AirshiftRequiredHand.Right);
+            yield return null;
+
+            Assert.That(AirshiftSlideOverlapRegistry.SameCompletePath(left, right), Is.True);
+            var split = Resources.Load<Material>("AirshiftOverlaps/SlideSplit");
+            Assert.That(split, Is.Not.Null);
+            Assert.That(_rig.SlideStar(0).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(split));
+            Assert.That(_rig.SlideStar(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(split));
+            Assert.That(left.transform.childCount, Is.EqualTo(right.transform.childCount));
+            for (var i = 0; i < left.transform.childCount; i++)
+            {
+                var a = left.transform.GetChild(i).GetComponent<SpriteRenderer>();
+                var b = right.transform.GetChild(i).GetComponent<SpriteRenderer>();
+                Assert.That(a.sharedMaterial, Is.SameAs(split));
+                Assert.That(b.sharedMaterial, Is.SameAs(split));
+            }
+
+            Assert.That(left.QueueRemaining, Is.EqualTo(right.QueueRemaining));
+            var block = new MaterialPropertyBlock();
+            _rig.SlideStar(0).GetComponent<SpriteRenderer>().GetPropertyBlock(block);
+            Assert.That(block.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(-1f));
+            _rig.SlideStar(1).GetComponent<SpriteRenderer>().GetPropertyBlock(block);
+            Assert.That(block.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(1f));
         }
 
         /// <summary>Checks that a conditional last arrow is left out and a two-area queue makes its first area mandatory.</summary>
@@ -536,10 +579,12 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
                                             SlideOkType okType,
                                             bool conditionalLastArrow,
                                             SlideTable? predefinedTable = null,
-                                            bool isEach = false)
+                                            bool isEach = false,
+                                            AirshiftRequiredHand requiredHand = AirshiftRequiredHand.Any)
         {
             var slide = Spawn();
             slide.IsEach = isEach;
+            slide.RequiredHand = requiredHand;
             var start = NoteHelper.GetTapPosition(1, 4.8f);
             var end = NoteHelper.GetTapPosition(3, 4.8f);
             var poses = new SlidePose[6];
