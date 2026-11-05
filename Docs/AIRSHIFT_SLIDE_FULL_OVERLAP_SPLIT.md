@@ -40,6 +40,22 @@ complete path**, including geometry and every arrow.
   initial visual-only split, to preserve their existing specialized
   materials and feedback. WIFI's three-star visualization is unchanged.
 
+## Syntax-compatibility fix after first Unity EditMode run
+
+The original PR #15 `AirshiftHandedSimaiSyntax.Preprocess` required
+`first.Substring(1) != second.Substring(1)` and checked the same
+inequality again in `IsOppositeHandParallelSlidePair`. That was
+correct for different-path parallel branches but incorrectly rejected
+the now-supported fully overlapped pair at preprocessing time.
+
+PR #20 removes only these two distinct-path checks. One L and one R
+are still mandatory, both complete paths must start at the same key,
+and unsupported WIFI, missing duration, triple and same-hand cases
+remain rejected. The EditMode test covers both `L...*R...` and
+`R...*L...` ordering and explicitly verifies the two parsed notes
+receive independent hand bindings. This issue was observed in the
+user's Unity Test Runner; the fix still requires a rerun.
+
 ## Implementation
 
 - `AirshiftSlideOverlapRegistry`: grouping per gameplay session and
