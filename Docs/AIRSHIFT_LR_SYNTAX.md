@@ -19,6 +19,9 @@ ordinary Simai notes:
 | `LC` | Blue center TOUCH, left hand required |
 | `L1-5[8:1]` | Blue straight SLIDE, left hand required |
 | `R3-7[8:1]` | Red straight SLIDE, right hand required |
+| `L1p4[8:1]` | Blue curved SLIDE, left hand required |
+| `R1V35[8:1]` | Red turning SLIDE, right hand required |
+| `L1-4[8:1]q7[8:1]` | Blue chained SLIDE, left hand required |
 | `1$`, `A1`, `C` | Original Simai notes, either hand |
 
 Example Master chart:
@@ -110,7 +113,7 @@ current chart preprocessor. Adding that syntax is a separate gameplay change.
 
 - Supported new tokens are `L/R + 1$`, `1$$` or basic TOUCH such as `LA1`,
   `RB3`, `LC`. Unprefixed notes retain ordinary Simai semantics.
-- Basic one-segment straight slides now accept `L1-5[8:1]` / `R3-7[8:1]` in the stacked PR #12. Their head STAR and guide follow the hand tint and only the assigned cursor advances the existing sensor-path judge. Curve/chain/WIFI hand syntax, directional one-flick judging, HOLD, TOUCH HOLD, and MINE are outside this stage.
+- Straight slides (`L1-5[8:1]`) and curved / turning / sequential chained slides (`L1p4[8:1]`, `R1V35[8:1]`, `L1-4[8:1]q7[8:1]`) support hand assignment. Head STAR and guide preserve hand tint and only the assigned cursor advances the existing path judge. Hand-prefixed WIFI and parallel * branches are intentionally rejected; unmarked WIFI is unchanged. Directional one-flick, HOLD, TOUCH HOLD and MINE remain outside scope.
 - Same-position/same-beat **opposite-hand standalone STAR pairs** are now
   permitted by the stacked overlap PR: `L1$/R1$`, `R1$/L1$`, and matching
   `L1$$/R1$$`. Only exactly two **identical STAR variants**, one L and
@@ -138,6 +141,9 @@ ordinary Simai notes:
 | `LC` | Blue center TOUCH, left hand required |
 | `L1-5[8:1]` | Blue straight SLIDE, left hand required |
 | `R3-7[8:1]` | Red straight SLIDE, right hand required |
+| `L1p4[8:1]` | Blue curved SLIDE, left hand required |
+| `R1V35[8:1]` | Red turning SLIDE, right hand required |
+| `L1-4[8:1]q7[8:1]` | Blue chained SLIDE, left hand required |
 | `1$`, `A1`, `C` | Original Simai notes, either hand |
 
 Example Master chart:
@@ -229,7 +235,7 @@ current chart preprocessor. Adding that syntax is a separate gameplay change.
 
 - Supported new tokens are `L/R + 1$`, `1$$` or basic TOUCH such as `LA1`,
   `RB3`, `LC`. Unprefixed notes retain ordinary Simai semantics.
-- Basic one-segment straight slides now accept `L1-5[8:1]` / `R3-7[8:1]` in the stacked PR #12. Their head STAR and guide follow the hand tint and only the assigned cursor advances the existing sensor-path judge. Curve/chain/WIFI hand syntax, directional one-flick judging, HOLD, TOUCH HOLD, and MINE are outside this stage.
+- Straight slides (`L1-5[8:1]`) and curved / turning / sequential chained slides (`L1p4[8:1]`, `R1V35[8:1]`, `L1-4[8:1]q7[8:1]`) support hand assignment. Head STAR and guide preserve hand tint and only the assigned cursor advances the existing path judge. Hand-prefixed WIFI and parallel * branches are intentionally rejected; unmarked WIFI is unchanged. Directional one-flick, HOLD, TOUCH HOLD and MINE remain outside scope.
 - Same-position/same-beat **opposite-hand standalone STAR pairs** are now
   permitted by the stacked overlap PR: `L1$/R1$`, `R1$/L1$`, and matching
   `L1$$/R1$$`. Only exactly two **identical STAR variants**, one L and

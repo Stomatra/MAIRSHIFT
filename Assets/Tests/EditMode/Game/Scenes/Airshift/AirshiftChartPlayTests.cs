@@ -39,11 +39,79 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
         public void GameSyntax_RejectsUnsupportedHandedSlidesAndIdenticalDoubles()
         {
             Assert.Throws<FormatException>(() =>
-                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1q5[8:1],E"));
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1w5[8:1],E"));
             Assert.Throws<FormatException>(() =>
                 AirshiftHandedSimaiSyntax.Preprocess("(120){4}R1h[4:1],E"));
             Assert.Throws<FormatException>(() =>
                 AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/L1$,E"));
+        }
+
+
+        /// <summary>
+        /// Curves, pivots and multi-segment simai SLIDEs bind the original
+        /// chart object and leave the original Game scene judge queues intact.
+        /// </summary>
+        [TestCase("(120){4}L1p4[8:1],E", "(120){4}1p4[8:1],E", "Left")]
+        [TestCase("(120){4}R1q4[8:1],E", "(120){4}1q4[8:1],E", "Right")]
+        [TestCase("(120){4}L1V35[8:1],E", "(120){4}1V35[8:1],E", "Left")]
+        [TestCase("(120){4}R1v3[8:1],E", "(120){4}1v3[8:1],E", "Right")]
+        [TestCase("(120){4}L1-4[8:1]q7[8:1],E", "(120){4}1-4[8:1]q7[8:1],E", "Left")]
+        [TestCase("(120){4}R1-3[8:1]-5[8:1],E", "(120){4}1-3[8:1]-5[8:1],E", "Right")]
+        [TestCase("(120){4}L1pp6[8:1],E", "(120){4}1pp6[8:1],E", "Left")]
+        public void GameSyntax_ComplexSlideKeepsHandOnOriginalParsedNote(
+            string source, string stripped, string handName)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText, Is.EqualTo(stripped));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(1));
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var notes = FlattenNotes(chart).Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(notes, Has.Length.EqualTo(1));
+            var hands = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(hands.Count, Is.EqualTo(1));
+            Assert.That(hands[notes[0]], Is.EqualTo(
+                Enum.Parse<AirshiftRequiredHand>(handName)));
+        }
+
+        /// <summary>
+        /// A preceding ordinary slide at the same source key must not be
+        /// accidentally assigned the hand of a later curved slide.
+        /// </summary>
+        [Test]
+        public void GameSyntax_HandedCurveAfterOrdinarySlideKeepsOccurrenceOrder()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(
+                "(120){4}1p4[8:1],R1V35[8:1],E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart).Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            var hands = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(slides, Has.Length.EqualTo(2));
+            Assert.That(hands.ContainsKey(slides[0]), Is.False);
+            Assert.That(hands[slides[1]], Is.EqualTo(AirshiftRequiredHand.Right));
+        }
+
+        /// <summary>
+        /// The single-cursor rule is not silently applied to WIFI, multiple
+        /// same-beat branches, or malformed tagged slide tokens.
+        /// </summary>
+        [TestCase("(120){4}L1w5[8:1],E")]
+        [TestCase("(120){4}R3w7[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]*-6[8:1],E")]
+        [TestCase("(120){4}L1-5,E")]
+        [TestCase("(120){4}R1-5[8:1]b,E")]
+        public void GameSyntax_ComplexSlideUnsupportedInputRejectsExplicitly(string input)
+        {
+            Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Preprocess(input));
+        }
+
+        /// <summary>Ordinary unprefixed WIFI charts still reach MajSimai untouched.</summary>
+        [Test]
+        public void GameSyntax_OrdinaryWifiRemainsUnchanged()
+        {
+            const string input = "(120){4}1w5[8:1],E";
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(input);
+            Assert.That(syntax.SimaiText, Is.EqualTo(input));
+            Assert.That(syntax.Markers.Count, Is.Zero);
         }
 
         /// <summary>One blue and one red identical STAR may share one beat and key.</summary>

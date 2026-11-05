@@ -15,7 +15,7 @@ namespace MajdataPlay.Scenes.Airshift
         // Include unprefixed simple TAPs and TOUCHes in the source ordinals:
         // 1 before L1$ must not cause L1$ to target that earlier 1.
         private static readonly Regex NoteToken = new(
-            @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?<slide>[1-8]-[1-8]\[[0-9]+:[0-9]+\])|(?<star>[1-8]\$\$?)|(?<tap>[1-8][bxm]?)|(?<touch>(?:[ABDE][1-8]|C)[fbxm]?))(?=[,/\x60\s]|$)",
+            @"(?<![A-Za-z0-9_])(?<hand>[LR]?)(?<token>(?<slide>[1-8](?=[\-^<>pqszvVw])[^,/\x60\s]+)|(?<star>[1-8]\$\$?)|(?<tap>[1-8][bxm]?)|(?<touch>(?:[ABDE][1-8]|C)[fbxm]?))(?=[,/\x60\s]|$)",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         // Catch unsupported prefixes such as L1h, R1-5, LA1h, etc.
@@ -108,12 +108,24 @@ namespace MajdataPlay.Scenes.Airshift
                 var isStar = match.Groups["star"].Success;
                 var isTouch = match.Groups["touch"].Success;
                 var isSlide = match.Groups["slide"].Success;
+                // A tagged WIFI inherently requires two real hands and a
+                // virtual midpoint. Its per-hand policy is separate from
+                // the single-cursor curve/chain feature.
+                if (isSlide && (token.IndexOf('w') >= 0 ||
+                                token.IndexOf('*') >= 0 ||
+                                token.IndexOf('[') < 0 ||
+                                !token.EndsWith("]", StringComparison.Ordinal)))
+                {
+                    throw new FormatException(
+                        "AIRSHIFT hand-prefixed WIFI / parallel / malformed SLIDE " +
+                        "is not supported by the curved/chain hand policy: " + prefix + token);
+                }
                 if (!isSlide && !isStar && (!isTouch || token.EndsWith("b", StringComparison.Ordinal) ||
                     token.EndsWith("x", StringComparison.Ordinal) ||
                     token.EndsWith("m", StringComparison.Ordinal)))
                 {
                     throw new FormatException(
-                        "AIRSHIFT hand prefix supports standalone STAR, plain TOUCH or one-segment straight SLIDE: " + prefix + token);
+                        "AIRSHIFT hand prefix supports standalone STAR, plain TOUCH or curved, turning or chained SLIDE: " + prefix + token);
                 }
 
                 var beatKey = fumen.LastIndexOf(',', match.Index) + ":" + key;
@@ -148,7 +160,7 @@ namespace MajdataPlay.Scenes.Airshift
                 {
                     throw new FormatException(
                         "Unsupported AIRSHIFT hand prefix at chart character " + possible.Index +
-                        ". Supported: L/R + 1$/1$, plain TOUCH (A1/B3/C), straight SLIDE (1-5[8:1]).");
+                        ". Supported: L/R + 1$/1$, ordinary TOUCH and non-WIFI SLIDE with duration; parallel branches excluded.");
                 }
             }
 
