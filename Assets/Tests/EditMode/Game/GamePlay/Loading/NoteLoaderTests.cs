@@ -259,6 +259,30 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
             Assert.That(second.QueueInfo.Index, Is.EqualTo(1L));
         }
 
+
+        /// <summary>Two same-sensor TOUCH tokens keep distinct queue positions and hand labels.</summary>
+        [Test]
+        public void AirshiftHandedChart_SameSensorTouchesReachSeparatePools()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}LA1/RA1,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            _loader.HandBindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            var timing = chart.NoteTimings[0];
+            Assert.That(timing.Notes, Has.Length.EqualTo(2));
+
+            var members = new List<ITouchGroupInfoProvider>();
+            var left = Invoke<TouchPoolingInfo>("CreateTouch", timing.Notes[0], timing, members);
+            var right = Invoke<TouchPoolingInfo>("CreateTouch", timing.Notes[1], timing, members);
+
+            Assert.That(left.SensorPos, Is.EqualTo(right.SensorPos));
+            Assert.That(left.Timing, Is.EqualTo(right.Timing));
+            Assert.That(left.Speed, Is.EqualTo(right.Speed));
+            Assert.That(left.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(right.RequiredHand, Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(left.QueueInfo.Index, Is.EqualTo(0L));
+            Assert.That(right.QueueInfo.Index, Is.EqualTo(1L));
+        }
+
         /// <summary>STANDARD has no hand tag map and retains Any on the same pooled note types.</summary>
         [Test]
         public void StandardChart_WithoutBindingsUsesAnyHandForStarAndTouch()

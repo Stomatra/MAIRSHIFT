@@ -335,6 +335,10 @@ namespace MajdataPlay.Scenes.Game
                     var timing = maiChart.NoteTimings[i];
                     PooledList<NotePoolingInfo?> eachNotes = new();
                     PooledList<ITouchGroupInfoProvider> touchGroupMembers = new();
+                    // AIRSHIFT-only same-sensor pairs: do not affect STANDARD
+                    // or change the usual TOUCH pool/group semantics.
+                    List<TouchPoolingInfo>? airshiftTouchCandidates =
+                        HandBindings is not null ? new List<TouchPoolingInfo>(2) : null;
                     PooledList<ITouchHoldGroupInfoProvider> touchHoldGroupMembers = new();
                     var foldedNotes = NoteCreateHelper.NoteFolding(timing.Notes);
                     if (isSRandomEnabled)
@@ -387,7 +391,17 @@ namespace MajdataPlay.Scenes.Game
                                     }
                                     break;
                                 case SimaiNoteType.Touch:
-                                    _poolManager.AddTouch(CreateTouch(note, timing, touchGroupMembers));
+                                    {
+                                        var touch = CreateTouch(note, timing, touchGroupMembers);
+                                        _poolManager.AddTouch(touch);
+                                        if (airshiftTouchCandidates is not null &&
+                                            touch.RequiredHand != AirshiftRequiredHand.Any &&
+                                            !touch.IsBreak && !touch.IsEX && !touch.IsMine &&
+                                            !note.IsHanabi)
+                                        {
+                                            airshiftTouchCandidates.Add(touch);
+                                        }
+                                    }
                                     break;
                                 case SimaiNoteType.Slide:
                                     var foldedSlide = note as FoldedSimaiNote;
@@ -471,6 +485,27 @@ namespace MajdataPlay.Scenes.Game
                                 }
 
                                 _noteManager.RegisterAirshiftStarPair(first.QueueInfo, second.QueueInfo);
+                            }
+                        }
+                    }
+
+                    if (airshiftTouchCandidates is not null)
+                    {
+                        for (var i = 0; i < airshiftTouchCandidates.Count; i++)
+                        {
+                            var first = airshiftTouchCandidates[i];
+                            for (var j = i + 1; j < airshiftTouchCandidates.Count; j++)
+                            {
+                                var second = airshiftTouchCandidates[j];
+                                if (first.SensorPos == second.SensorPos &&
+                                    first.Timing == second.Timing &&
+                                    first.Speed == second.Speed &&
+                                    first.RequiredHand != second.RequiredHand &&
+                                    first.QueueInfo.Index + 1 == second.QueueInfo.Index)
+                                {
+                                    _noteManager.RegisterAirshiftTouchPair(
+                                        first.QueueInfo, second.QueueInfo);
+                                }
                             }
                         }
                     }

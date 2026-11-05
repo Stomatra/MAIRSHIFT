@@ -115,6 +115,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
                 return;
             }
 
+            AirshiftTouchOverlapRegistry.Unregister(this);
             StartPos = poolingInfo.StartPos;
             Timing = poolingInfo.Timing - TOUCH_DISPLAY_OFFSET_SEC;
             JudgeTiming = poolingInfo.Timing;
@@ -164,7 +165,22 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             NoteHelper.Sorting.Apply(_justBorderRenderer, NoteHelper.Sorting.NoteLayer.Touch, SortOrder - _justBorderSortOrder);
 
             State = NoteStatus.Inited;
+            if (ModInfo.AirshiftEnabled &&
+                !IsBreak && !IsMine && !IsEX && !_isFirework &&
+                (RequiredHand == AirshiftRequiredHand.Left ||
+                 RequiredHand == AirshiftRequiredHand.Right))
+            {
+                AirshiftTouchOverlapRegistry.Register(
+                    this, NoteController, SensorPos, poolingInfo.Timing,
+                    Speed, _fanRenderers, _pointRenderer, _justBorderRenderer);
+            }
         }
+
+        private void OnDestroy()
+        {
+            AirshiftTouchOverlapRegistry.Unregister(this);
+        }
+
         private void End()
         {
             if (IsEnded)
@@ -173,6 +189,7 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             }
 
             State = NoteStatus.End;
+            AirshiftTouchOverlapRegistry.Unregister(this);
 
             _multTouchHandler.Unregister(SensorPos);
             var result = new NoteJudgeResult()

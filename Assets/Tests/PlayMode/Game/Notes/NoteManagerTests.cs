@@ -322,6 +322,66 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.DoesNotThrow(() => Manager.NextTouch(invalid));
         }
 
+
+        /// <summary>TOUCH right-first resolution leaves later TOUCHes blocked.</summary>
+        [Test]
+        public void AirshiftTouchPair_RightFirstKeepsLaterSensorNoteBlocked()
+        {
+            var first = new TouchQueueInfo { SensorPos = SensorArea.B4, Index = 0 };
+            var second = new TouchQueueInfo { SensorPos = SensorArea.B4, Index = 1 };
+            var next = new TouchQueueInfo { SensorPos = SensorArea.B4, Index = 2 };
+            Manager.RegisterAirshiftTouchPair(first, second);
+
+            Assert.That(Manager.IsCurrentNoteJudgeable(first), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(second), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.False);
+
+            Manager.NextTouch(second);
+            Assert.That(Manager.IsCurrentNoteJudgeable(first), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.False);
+
+            Manager.NextTouch(first);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.True);
+        }
+
+        /// <summary>TOUCH left-first resolution keeps the usual queue order afterward.</summary>
+        [Test]
+        public void AirshiftTouchPair_LeftFirstRequiresRightBeforeNextSensorNote()
+        {
+            var first = new TouchQueueInfo { SensorPos = SensorArea.C, Index = 0 };
+            var second = new TouchQueueInfo { SensorPos = SensorArea.C, Index = 1 };
+            var next = new TouchQueueInfo { SensorPos = SensorArea.C, Index = 2 };
+            Manager.RegisterAirshiftTouchPair(first, second);
+            Manager.NextTouch(first);
+            Assert.That(Manager.IsCurrentNoteJudgeable(second), Is.True);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.False);
+            Manager.NextTouch(second);
+            Assert.That(Manager.IsCurrentNoteJudgeable(next), Is.True);
+        }
+
+        /// <summary>New chart resets both kinds of AIRSHIFT pair data.</summary>
+        [Test]
+        public void AirshiftTouchPair_ResetCounterClearsHandExceptions()
+        {
+            var first = new TouchQueueInfo { SensorPos = SensorArea.D3, Index = 0 };
+            var second = new TouchQueueInfo { SensorPos = SensorArea.D3, Index = 1 };
+            Manager.RegisterAirshiftTouchPair(first, second);
+            Assert.That(Manager.IsCurrentNoteJudgeable(second), Is.True);
+            Manager.ResetCounter();
+            Assert.That(Manager.IsCurrentNoteJudgeable(second), Is.False);
+        }
+
+        /// <summary>Illegal pair metadata never relaxes the original sensor FIFO.</summary>
+        [Test]
+        public void AirshiftTouchPair_RejectsDifferentSensorAndGappedIndices()
+        {
+            var first = new TouchQueueInfo { SensorPos = SensorArea.A1, Index = 0 };
+            Assert.Throws<System.ArgumentException>(() => Manager.RegisterAirshiftTouchPair(
+                first, new TouchQueueInfo { SensorPos = SensorArea.A2, Index = 1 }));
+            Assert.Throws<System.ArgumentException>(() => Manager.RegisterAirshiftTouchPair(
+                first, new TouchQueueInfo { SensorPos = SensorArea.A1, Index = 2 }));
+        }
+
         /// <summary>Checks that resetting the counters and clearing the manager rewind every queue and input state.</summary>
         /// <returns>The test coroutine.</returns>
         [UnityTest]

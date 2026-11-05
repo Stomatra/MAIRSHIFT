@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using MajSimai;
 using MajdataPlay.IO;
 using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Scenes.Game;
@@ -167,6 +169,122 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             UpdateAt(red, 0.7f);
             Assert.That(blueFan.color.a, Is.EqualTo(1f));
             Assert.That(redFan.color.a, Is.EqualTo(1f));
+        }
+
+
+        /// <summary>Opposite-hand TOUCHes share a split plane across fans, point and border.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftCoincidentTouches_ApplySplitToAllSixRenderers()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B3, timing: 1f, requiredHand: AirshiftRequiredHand.Left, index: 0));
+            var right = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B3, timing: 1f, requiredHand: AirshiftRequiredHand.Right, index: 1));
+            yield return null;
+
+            var material = Resources.Load<Material>("AirshiftOverlaps/TouchSplit");
+            Assert.That(material, Is.Not.Null);
+            for (var child = 0; child <= 5; child++)
+            {
+                var leftRenderer = left.transform.GetChild(child).GetComponent<SpriteRenderer>();
+                var rightRenderer = right.transform.GetChild(child).GetComponent<SpriteRenderer>();
+                Assert.That(leftRenderer.sharedMaterial, Is.SameAs(material));
+                Assert.That(rightRenderer.sharedMaterial, Is.SameAs(material));
+                var lp = new MaterialPropertyBlock();
+                var rp = new MaterialPropertyBlock();
+                leftRenderer.GetPropertyBlock(lp);
+                rightRenderer.GetPropertyBlock(rp);
+                Assert.That(lp.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(-1f));
+                Assert.That(rp.GetFloat(Shader.PropertyToID("_SplitSide")), Is.EqualTo(1f));
+                Assert.That(lp.GetVector(Shader.PropertyToID("_SplitOrigin")),
+                    Is.EqualTo(rp.GetVector(Shader.PropertyToID("_SplitOrigin"))));
+            }
+        }
+
+        /// <summary>A judged or destroyed half leaves its partner a full single-color TOUCH.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftCoincidentTouches_DestroyPartnerRestoresOriginalMaterials()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var left = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.E3, timing: 1f, requiredHand: AirshiftRequiredHand.Left, index: 0));
+            var right = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.E3, timing: 1f, requiredHand: AirshiftRequiredHand.Right, index: 1));
+            yield return null;
+            Assert.That(right.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(Resources.Load<Material>("AirshiftOverlaps/TouchSplit")));
+
+            UnityEngine.Object.Destroy(left.gameObject);
+            yield return null;
+            for (var child = 0; child <= 5; child++)
+            {
+                Assert.That(right.transform.GetChild(child).GetComponent<SpriteRenderer>().sharedMaterial,
+                    Is.SameAs(_rig.DefaultMaterial));
+            }
+        }
+
+        /// <summary>Wrong time/area and STANDARD never use AIRSHIFT's split material.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftCoincidentTouches_RequireExactOverlapAndAirshift()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var blue = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.A3, timing: 1f, requiredHand: AirshiftRequiredHand.Left));
+            var lateRed = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.A3, timing: 1.1f, requiredHand: AirshiftRequiredHand.Right, index: 1));
+            var elsewhere = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.A4, timing: 1f, requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+            Assert.That(blue.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(lateRed.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(elsewhere.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(_rig.DefaultMaterial));
+        }
+
+        /// <summary>STANDARD hand annotations never alter its original TOUCH material.</summary>
+        [UnityTest]
+        public IEnumerator StandardCoincidentTouches_DoNotApplyAirshiftSplit()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var left = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B1, requiredHand: AirshiftRequiredHand.Left));
+            var right = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B1, requiredHand: AirshiftRequiredHand.Right, index: 1));
+            yield return null;
+
+            Assert.That(left.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(_rig.DefaultMaterial));
+            Assert.That(right.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(_rig.DefaultMaterial));
+        }
+
+        /// <summary>Real chart L/R TOUCH labels reach the split-rendering touch instances.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftChartTouchPair_BindsDistinctHandsAndSplitMaterial()
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}LA1/RA1,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var binding = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(chart.NoteTimings[0].Notes, Has.Length.EqualTo(2));
+            var notes = chart.NoteTimings[0].Notes;
+
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var first = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.A1, timing: (float)chart.NoteTimings[0].Timing,
+                requiredHand: binding[notes[0]], index: 0));
+            var second = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.A1, timing: (float)chart.NoteTimings[0].Timing,
+                requiredHand: binding[notes[1]], index: 1));
+            yield return null;
+
+            Assert.That(first, Is.Not.SameAs(second));
+            Assert.That(first.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(Resources.Load<Material>("AirshiftOverlaps/TouchSplit")));
+            Assert.That(second.transform.GetChild(1).GetComponent<SpriteRenderer>().sharedMaterial,
+                Is.SameAs(Resources.Load<Material>("AirshiftOverlaps/TouchSplit")));
         }
 
         /// <summary>STANDARD TOUCH ignores required-hand metadata and keeps the authored point/border colors.</summary>
