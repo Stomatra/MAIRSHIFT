@@ -1,14 +1,11 @@
 using MajdataPlay.Scenes.Airshift;
 using MajdataPlay.Tests;
 using MajRadar.Core;
-using MajRadar.MajSimaiAdapter;
 using MajSimai;
-using MajdataPlay.Utils.ChartRadar;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using UnityEngine;
 
 #nullable enable
@@ -18,136 +15,90 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
     public class AirshiftChartPlayTests
     {
         [Test]
-        public void HandedSyntax_StripsOnlySupportedPrefixesAndKeepsOrdinals()
+        public void GameSyntax_RecognizesHandedStarsAndTouchesOnlyInAirshift()
         {
-            var parsed = AirshiftHandedSimaiSyntax.Preprocess(
-                "(120){4}L1$,R5$,LA1,RB3,1$,A1,E");
-            Assert.That(parsed.SimaiText, Is.EqualTo("(120){4}1$,5$,A1,B3,1$,A1,E"));
-            Assert.That(parsed.Markers.Count, Is.EqualTo(4));
-            Assert.That(parsed.Markers[0].Token, Is.EqualTo("1$"));
-            Assert.That(parsed.Markers[0].Key, Is.EqualTo("T:A1"));
-            Assert.That(parsed.Markers[0].Occurrence, Is.Zero);
-            Assert.That(parsed.SourceCounts["T:A1"], Is.EqualTo(2));
-            Assert.That(parsed.SourceCounts["C:A1"], Is.EqualTo(2));
-            Assert.That(parsed.Markers[0].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Left));
-            Assert.That(parsed.Markers[1].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Right));
-            Assert.That(parsed.Markers[2].Token, Is.EqualTo("A1"));
-            Assert.That(parsed.Markers[2].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Left));
-            Assert.That(parsed.Markers[3].Token, Is.EqualTo("B3"));
-            Assert.That(parsed.Markers[3].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Right));
+            var source = "(120){4}L1$,R5$,LA1,RB3,1$,A1,E";
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+
+            Assert.That(syntax.SimaiText, Is.EqualTo("(120){4}1$,5$,A1,B3,1$,A1,E"));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(4));
+            Assert.That(syntax.Markers.Select(x => x.RequiredHand), Is.EqualTo(new[]
+            {
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right,
+                AirshiftRequiredHand.Left,
+                AirshiftRequiredHand.Right,
+            }));
+            Assert.That(syntax.SourceCounts["T:A1"], Is.EqualTo(2));
+            Assert.That(syntax.SourceCounts["C:A1"], Is.EqualTo(2));
+            // STANDARD must never invoke Preprocess, so it receives unmodified fumen.
+            Assert.That(source, Does.StartWith("(120){4}L1$"));
         }
 
         [Test]
-        public void HandedSyntax_RejectsUnsupportedAndAmbiguousPrefixedNotes()
+        public void GameSyntax_RejectsUnsupportedHandedSlidesAndIdenticalDoubles()
         {
             Assert.Throws<FormatException>(() =>
                 AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1-5[8:1],E"));
             Assert.Throws<FormatException>(() =>
-                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/R1$,E"));
-            Assert.Throws<FormatException>(() =>
                 AirshiftHandedSimaiSyntax.Preprocess("(120){4}R1h[4:1],E"));
+            Assert.Throws<FormatException>(() =>
+                AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$/R1$,E"));
         }
 
         [Test]
-        public void HandedSyntax_ParsedMajSimaiChartReceivesCorrectHandMetadata()
+        public void GameSyntax_ParsedMajSimaiNotesHaveHandsForOriginalGameLoader()
         {
             var syntax = AirshiftHandedSimaiSyntax.Preprocess(
                 "(120){4}L1$,R5$,LA1,RB3,1$,A1,E");
-            var simai = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
-            var adaptation = new MajSimaiChartAdapter(
-                new PlayExtendedSlideBarCountProvider()).Adapt(simai, CancellationToken.None);
-            Assert.That(adaptation.IsSuccess, Is.True,
-                string.Join("; ", adaptation.Errors));
-            Assert.That(adaptation.Chart, Is.Not.Null);
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
 
-            var chart = AirshiftChartConverter.Convert(adaptation.Chart!, 0d);
-            AirshiftHandedSimaiSyntax.Apply(chart, syntax);
-            var leftStar = chart.Notes.Single(note =>
-                note.Kind == AirshiftChartNoteKind.Tap &&
-                note.Area == AirshiftSensorArea.A1 &&
-                note.RequiredHand == AirshiftRequiredHand.Left);
-            var rightStar = chart.Notes.Single(note =>
-                note.Kind == AirshiftChartNoteKind.Tap &&
-                note.Area == AirshiftSensorArea.A5 &&
-                note.RequiredHand == AirshiftRequiredHand.Right);
-            var leftTouch = chart.Notes.Single(note =>
-                note.Kind == AirshiftChartNoteKind.Touch && note.Area == AirshiftSensorArea.A1 &&
-                note.RequiredHand == AirshiftRequiredHand.Left);
-            var rightTouch = chart.Notes.Single(note =>
-                note.Kind == AirshiftChartNoteKind.Touch && note.Area == AirshiftSensorArea.B3 &&
-                note.RequiredHand == AirshiftRequiredHand.Right);
-
-            Assert.That(leftStar.IsSlideHead, Is.True);
-            Assert.That(rightStar.IsSlideHead, Is.True);
-            Assert.That(leftTouch.IsSlideHead, Is.False);
-            Assert.That(rightTouch.IsSlideHead, Is.False);
-            Assert.That(chart.Notes.Count(n => n.RequiredHand == AirshiftRequiredHand.Any), Is.EqualTo(2));
+            Assert.That(bindings.Count, Is.EqualTo(4));
+            var marked = chart.NoteTimings.SelectMany(x => x.Notes)
+                .Where(bindings.ContainsKey).ToArray();
+            Assert.That(marked.Count(n => n.Type == SimaiNoteType.Tap && n.IsForceStar), Is.EqualTo(2));
+            Assert.That(marked.Count(n => n.Type == SimaiNoteType.Touch), Is.EqualTo(2));
+            Assert.That(marked.Single(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1)
+                .IsForceStar, Is.True);
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1)],
+                Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 5)],
+                Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'A')],
+                Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings[marked.Single(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'B')],
+                Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(chart.NoteTimings.SelectMany(x => x.Notes).Count() - bindings.Count,
+                Is.EqualTo(2), "Unprefixed notes remain unbound and accept either hand.");
         }
 
         [Test]
-        public void HandedSyntax_OrdinalsIncludeOrdinaryTapBeforeBlueStar()
+        public void GameSyntax_UsesOrdinalAfterEarlierOrdinaryNote()
         {
-            var syntax = AirshiftHandedSimaiSyntax.Preprocess(
-                "(120){4}1,L1$,A1,RA1,E");
-            Assert.That(syntax.SimaiText, Is.EqualTo("(120){4}1,1$,A1,A1,E"));
-            Assert.That(syntax.Markers.Select(m => m.Occurrence), Is.EqualTo(new[] { 1, 1 }));
-            Assert.That(syntax.SourceCounts["T:A1"], Is.EqualTo(2));
-            Assert.That(syntax.SourceCounts["C:A1"], Is.EqualTo(2));
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}1,L1$,A1,RA1,E");
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
 
-            // Adapter may normalize raw token strings; semantic area and ordinal
-            // must still identify the second TAP and second TOUCH correctly.
-            var notes = new[]
-            {
-                new AirshiftChartNote(1, AirshiftChartNoteKind.Tap, 1d, 1d,
-                    AirshiftSensorArea.A1, false, false, false, false, "1"),
-                new AirshiftChartNote(2, AirshiftChartNoteKind.Touch, 1d, 1d,
-                    AirshiftSensorArea.A1, false, false, false, false, "A1"),
-                new AirshiftChartNote(3, AirshiftChartNoteKind.Tap, 2d, 2d,
-                    AirshiftSensorArea.A1, false, false, false, false, "normalized-star"),
-                new AirshiftChartNote(4, AirshiftChartNoteKind.Touch, 2d, 2d,
-                    AirshiftSensorArea.A1, false, false, false, false, "normalized-touch")
-            };
-            var chart = Chart(notes);
-            AirshiftHandedSimaiSyntax.Apply(chart, syntax);
-            Assert.That(notes[0].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Any));
-            Assert.That(notes[1].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Any));
-            Assert.That(notes[2].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Left));
-            Assert.That(notes[2].IsSlideHead, Is.True);
-            Assert.That(notes[3].RequiredHand, Is.EqualTo(AirshiftRequiredHand.Right));
+            var taps = chart.NoteTimings.SelectMany(x => x.Notes)
+                .Where(n => n.Type == SimaiNoteType.Tap && n.StartPosition == 1).ToArray();
+            var touches = chart.NoteTimings.SelectMany(x => x.Notes)
+                .Where(n => n.Type == SimaiNoteType.Touch && n.TouchArea == 'A').ToArray();
+            Assert.That(taps.Length, Is.EqualTo(2));
+            Assert.That(touches.Length, Is.EqualTo(2));
+            Assert.That(bindings.ContainsKey(taps[0]), Is.False);
+            Assert.That(bindings[taps[1]], Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(bindings.ContainsKey(touches[0]), Is.False);
+            Assert.That(bindings[touches[1]], Is.EqualTo(AirshiftRequiredHand.Right));
         }
 
         [Test]
-        public void HandedSyntax_RejectsAdapterCountMismatch()
+        public void GameSyntax_RejectsParserCountMismatchInsteadOfWrongHandAssignment()
         {
             var syntax = AirshiftHandedSimaiSyntax.Preprocess("(120){4}L1$,E");
-            var chart = Chart(
-                Note(1, AirshiftChartNoteKind.Tap, 1d, 1d, AirshiftSensorArea.A1),
-                Note(2, AirshiftChartNoteKind.Tap, 2d, 2d, AirshiftSensorArea.A1));
-            Assert.Throws<FormatException>(() => AirshiftHandedSimaiSyntax.Apply(chart, syntax));
-            Assert.That(chart.Notes.All(note => note.RequiredHand == AirshiftRequiredHand.Any), Is.True);
-        }
-
-        [Test]
-        public void HandedChartJudge_RejectsWrongHandAndRetainsEachNote()
-        {
-            var blueStar = Note(1, AirshiftChartNoteKind.Tap, 1d, 1d, AirshiftSensorArea.A1);
-            blueStar.RequiredHand = AirshiftRequiredHand.Left;
-            blueStar.IsSlideHead = true;
-            var redTouch = Note(2, AirshiftChartNoteKind.Touch, 2d, 2d, AirshiftSensorArea.B3);
-            redTouch.RequiredHand = AirshiftRequiredHand.Right;
-            var judge = new AirshiftChartJudge(Chart(blueStar, redTouch), AirshiftChartJudgeSettings.Prototype);
-
-            Assert.That(judge.ObserveTapGesture(Gesture(1, HandId.Right, AirshiftArea.A1), 1d), Is.False);
-            Assert.That(blueStar.State, Is.EqualTo(AirshiftNoteState.Pending));
-            Assert.That(judge.ObserveTapGesture(Gesture(2, HandId.Left, AirshiftArea.A1), 1d), Is.True);
-            Assert.That(blueStar.State, Is.EqualTo(AirshiftNoteState.Resolved));
-
-            Assert.That(judge.ObserveSensorAction(
-                new AirshiftSensorAction(3, HandId.Left, AirshiftSensorArea.B3, 2d, 1f), 2d), Is.False);
-            Assert.That(redTouch.State, Is.EqualTo(AirshiftNoteState.Pending));
-            Assert.That(judge.ObserveSensorAction(
-                new AirshiftSensorAction(4, HandId.Right, AirshiftSensorArea.B3, 2d, 1f), 2d), Is.True);
-            Assert.That(redTouch.Grade, Is.EqualTo(AirshiftJudgeGrade.Perfect));
+            var wrongChart = SimaiParser.ParseChart("(120){4}1,1$,E".AsSpan());
+            Assert.Throws<FormatException>(() =>
+                AirshiftHandedSimaiSyntax.BindGameNotes(wrongChart, syntax));
         }
 
         [Test]
