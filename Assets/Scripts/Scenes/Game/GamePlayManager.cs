@@ -710,8 +710,34 @@ namespace MajdataPlay.Scenes.Game
                 throw new EmptyChartException();
             }
 
-            ChartMirror(ref maidata);
-            _chart = await SimaiParser.ParseChartAsync(_songDetail.Levels[levelIndex], _songDetail.Designers[levelIndex], maidata);
+            if (IsAirshiftMode)
+            {
+                // AIRSHIFT extends the chart syntax, not the gameplay scene.
+                // Strip hand prefixes before calling the unchanged MajSimai parser.
+                var syntax = AirshiftHandedSimaiSyntax.Preprocess(maidata);
+                if (syntax.Markers.Count != 0 && _gameSettings.Game.Mirror != MirrorOption.Off)
+                {
+                    throw new NotSupportedException(
+                        "AIRSHIFT L/R charts currently require Game Mirror = Off to preserve hand assignments.");
+                }
+
+                maidata = syntax.SimaiText;
+                ChartMirror(ref maidata);
+                _chart = await SimaiParser.ParseChartAsync(
+                    _songDetail.Levels[levelIndex],
+                    _songDetail.Designers[levelIndex],
+                    maidata);
+                _noteLoader.HandBindings = AirshiftHandedSimaiSyntax.BindGameNotes(_chart, syntax);
+            }
+            else
+            {
+                _noteLoader.HandBindings = null;
+                ChartMirror(ref maidata);
+                _chart = await SimaiParser.ParseChartAsync(
+                    _songDetail.Levels[levelIndex],
+                    _songDetail.Designers[levelIndex],
+                    maidata);
+            }
             var mvSeekCmd = _simaiFile.Commands.FirstOrDefault(x => x.Prefix == "mv_seek");
             var mvWaitCmd = _simaiFile.Commands.FirstOrDefault(x => x.Prefix == "mv_wait");
             if (float.TryParse(mvSeekCmd.Value, out var offsetSec))
