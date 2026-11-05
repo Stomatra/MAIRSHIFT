@@ -245,6 +245,46 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(slide.HiddenBarCount, Is.EqualTo(5));
         }
 
+
+        /// <summary>Handed AIRSHIFT slide input excludes the other cursor, Any still accepts both.</summary>
+        [Test]
+        public void AirshiftStraightSlide_OnlyAssignedHandIsAccepted()
+        {
+            Assert.That(SlideBase.CanUseAirshiftHand(
+                MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Left,
+                MajdataPlay.Scenes.Airshift.HandId.Left), Is.True);
+            Assert.That(SlideBase.CanUseAirshiftHand(
+                MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Left,
+                MajdataPlay.Scenes.Airshift.HandId.Right), Is.False);
+            Assert.That(SlideBase.CanUseAirshiftHand(
+                MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Right,
+                MajdataPlay.Scenes.Airshift.HandId.Left), Is.False);
+            Assert.That(SlideBase.CanUseAirshiftHand(
+                MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Right,
+                MajdataPlay.Scenes.Airshift.HandId.Right), Is.True);
+            Assert.That(SlideBase.CanUseAirshiftHand(
+                MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any,
+                MajdataPlay.Scenes.Airshift.HandId.Left), Is.True);
+            Assert.That(SlideBase.CanUseAirshiftHand(
+                MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Any,
+                MajdataPlay.Scenes.Airshift.HandId.Right), Is.True);
+        }
+
+        /// <summary>Slide path colors retain the original fade alpha.</summary>
+        [Test]
+        public void AirshiftStraightSlide_TintedArrowPreservesFadeAlpha()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var slide = CreateSlide();
+            slide.RequiredHand = MajdataPlay.Scenes.Airshift.AirshiftRequiredHand.Left;
+            var arrows = AddBars(slide, 2);
+            slide.RunSetSlideBarAlpha(0.4f);
+            Assert.That(arrows[0].color.a, Is.EqualTo(0.4f));
+            Assert.That(arrows[0].color.r, Is.EqualTo(0.27f).Within(0.00001f));
+            Assert.That(arrows[0].color.g, Is.EqualTo(0.59f).Within(0.00001f));
+            Assert.That(arrows[0].color.b, Is.EqualTo(1f).Within(0.00001f));
+        }
+
         /// <summary>Checks the alpha and material setters of the bars.</summary>
         [Test]
         public void SlideBarRender_SetsAlphaAndMaterial()

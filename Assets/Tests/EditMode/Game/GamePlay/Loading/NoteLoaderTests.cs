@@ -283,6 +283,55 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
             Assert.That(right.QueueInfo.Index, Is.EqualTo(1L));
         }
 
+        /// <summary>
+        /// A hand marker on the original parsed SLIDE survives the folded
+        /// replacement that the original Game loader creates.
+        /// </summary>
+        [Test]
+        public void AirshiftHandedStraightSlide_ResolvesAfterNoteFolding()
+        {
+            var source = new SimaiNote
+            {
+                Type = SimaiNoteType.Slide,
+                StartPosition = 1,
+                RawContent = "1-5[8:1]",
+                SlideTime = 1,
+                SlideStartTime = 1
+            };
+            var folded = CreateFoldedSlide("1-5[8:1]");
+            _loader.HandBindings = new Dictionary<SimaiNote, AirshiftRequiredHand>
+            {
+                [source] = AirshiftRequiredHand.Left
+            };
+
+            var hand = Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", folded, new[] { source });
+
+            Assert.That(hand, Is.EqualTo(AirshiftRequiredHand.Left));
+        }
+
+        /// <summary>Untagged or mismatched slide sources do not steal a hand marker.</summary>
+        [Test]
+        public void AirshiftHandedStraightSlide_DoesNotRetagOtherSlideShape()
+        {
+            var source = new SimaiNote
+            {
+                Type = SimaiNoteType.Slide,
+                StartPosition = 1,
+                RawContent = "1-5[8:1]"
+            };
+            _loader.HandBindings = new Dictionary<SimaiNote, AirshiftRequiredHand>
+            {
+                [source] = AirshiftRequiredHand.Left
+            };
+
+            var other = CreateFoldedSlide("1-6[8:1]");
+            var hand = Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", other, new[] { source });
+
+            Assert.That(hand, Is.EqualTo(AirshiftRequiredHand.Any));
+        }
+
         /// <summary>STANDARD has no hand tag map and retains Any on the same pooled note types.</summary>
         [Test]
         public void StandardChart_WithoutBindingsUsesAnyHandForStarAndTouch()

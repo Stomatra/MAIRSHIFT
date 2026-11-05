@@ -25,6 +25,14 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
 {
     internal abstract class SlideBase : NoteLongDrop
     {
+        /// <summary>AIRSHIFT-only slide hand. Any and STANDARD retain original behaviour.</summary>
+        internal AirshiftRequiredHand RequiredHand { get; set; } = AirshiftRequiredHand.Any;
+
+        internal static bool CanUseAirshiftHand(AirshiftRequiredHand required, HandId hand) =>
+            required == AirshiftRequiredHand.Any ||
+            required == AirshiftRequiredHand.Left && hand == HandId.Left ||
+            required == AirshiftRequiredHand.Right && hand == HandId.Right;
+
         const int SLIDE_BAR_MODE_SET_ALPHA = 1;
         const int SLIDE_BAR_MODE_SET_MATERIAL = 2;
         const int SLIDE_BAR_MODE_SET_ALPHA_AND_MATERIAL = 3;
@@ -485,10 +493,12 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
             }
 
             bool pressed =
-                (leftArea != AirshiftSensorArea.None &&
-                (int)leftArea == (int)area) ||
-                (rightArea != AirshiftSensorArea.None &&
-                (int)rightArea == (int)area);
+                (CanUseAirshiftHand(RequiredHand, HandId.Left) &&
+                 leftArea != AirshiftSensorArea.None &&
+                 (int)leftArea == (int)area) ||
+                (CanUseAirshiftHand(RequiredHand, HandId.Right) &&
+                 rightArea != AirshiftSensorArea.None &&
+                 (int)rightArea == (int)area);
 
             // The virtual thumb is accepted only for WIFI lane 1.
             if (useVirtualCenter &&
@@ -695,7 +705,8 @@ namespace MajdataPlay.Scenes.Game.Notes.Behaviours
         {
             ref var rendererRef = ref MemoryMarshal.GetReference(SlideBarRenderers.AsSpan());
             var count = SlideBars.Count;
-            var newColor = new Color(1f, 1f, 1f, alpha);
+            var tint = AirshiftNoteVisualPalette.GetTint(RequiredHand, ModInfo.AirshiftEnabled);
+            var newColor = new Color(tint.r, tint.g, tint.b, alpha);
             for (var i = 0; i < count; i++)
             {
                 ref var sr = ref Unsafe.Add(ref rendererRef, i);
