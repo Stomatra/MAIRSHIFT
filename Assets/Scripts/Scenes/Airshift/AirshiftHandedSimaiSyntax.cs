@@ -110,12 +110,15 @@ namespace MajdataPlay.Scenes.Airshift
             var output = new StringBuilder(normalizedFumen.Length);
             var previous = 0;
 
-            // Count every simple source TAP/TOUCH, including unprefixed notes.
+            // Unprefixed native '*' multi-branch slides are one source
+            // token but MajSimai expands them into independent Slide notes.
+            // Count each resulting path so later L/R slide ordinals stay
+            // aligned with the original Game parser.
             foreach (Match match in matches)
             {
                 var key = GetSourceKey(match);
                 sourceCounts.TryGetValue(key, out var index);
-                sourceCounts[key] = index + 1;
+                sourceCounts[key] = index + GetParsedNoteContribution(match);
 
                 var beatKey = normalizedFumen.LastIndexOf(',', match.Index) + ":" + key;
                 if (!sameBeatNotes.TryGetValue(beatKey, out var beatNotes))
@@ -131,7 +134,7 @@ namespace MajdataPlay.Scenes.Airshift
             {
                 var key = GetSourceKey(match);
                 ordinals.TryGetValue(key, out var index);
-                ordinals[key] = index + 1;
+                ordinals[key] = index + GetParsedNoteContribution(match);
 
                 var prefix = match.Groups["hand"].Value;
                 if (prefix.Length == 0)
@@ -279,6 +282,31 @@ namespace MajdataPlay.Scenes.Airshift
                    notes[0].Groups["token"].Value != notes[1].Groups["token"].Value;
         }
 
+        /// <summary>
+        /// MajSimai expands an ordinary '*' slide into one parsed Slide
+        /// object per branch. Explicit AIRSHIFT L/R pairs were normalized
+        /// to slash-separated full slides earlier, so each contributes one.
+        /// Preserve the exact ordering of later hand-prefixed slide markers.
+        /// </summary>
+        private static int GetParsedNoteContribution(Match match)
+        {
+            if (!match.Groups["slide"].Success)
+            {
+                return 1;
+            }
+
+            var token = match.Groups["token"].Value;
+            var result = 1;
+            foreach (var character in token)
+            {
+                if (character == '*')
+                {
+                    result++;
+                }
+            }
+            return result;
+        }
+
         private static string GetSourceKey(Match match)
         {
             var token = match.Groups["token"].Value;
@@ -342,7 +370,7 @@ namespace MajdataPlay.Scenes.Airshift
                     throw new FormatException(
                         "AIRSHIFT Game chart mapping is ambiguous for " + key +
                         ": " + sourceCount + " simple source notes versus " +
-                        parsedCount + " parsed TAP/TOUCH objects.");
+                        parsedCount + " parsed note objects.");
                 }
             }
 
