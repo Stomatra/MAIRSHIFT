@@ -83,6 +83,9 @@ namespace MajdataPlay.Tests.Game.IO.PlayMode
                         writer.Write(new byte[frames * 2]);
                     }
 
+                    Assert.That(File.Exists(path), Is.True,
+                        "The regression must prove the file exists before requesting its URI.");
+                    Assert.That(new Uri(Path.GetFullPath(path)).IsFile, Is.True);
                     var manager = host.AddComponent<AudioManager>();
                     var sample = await manager.LoadMusicAsync(path);
                     try
