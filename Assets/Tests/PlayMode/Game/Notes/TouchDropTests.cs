@@ -169,6 +169,51 @@ namespace MajdataPlay.Tests.Game.Notes.PlayMode
             Assert.That(redFan.color.a, Is.EqualTo(1f));
         }
 
+        /// <summary>AIRSHIFT Each TOUCH uses ordinary skin with animated yellow outlines on all visual parts.</summary>
+        [UnityTest]
+        public IEnumerator AirshiftEachTouch_UsesNormalSkinAndAlphaSyncedYellowSilhouettes()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: true);
+            var touch = _rig.SpawnTouch(GameplayRig.TouchInfo(
+                SensorArea.B1, timing: 1f, isEach: true,
+                requiredHand: AirshiftRequiredHand.Right));
+            yield return null;
+
+            var fan = touch.transform.GetChild(1).GetComponent<SpriteRenderer>();
+            var center = touch.transform.GetChild(0).GetComponent<SpriteRenderer>();
+            var fanOutlineTransform = fan.transform.Find("AIRSHIFT_EachYellowOutline");
+            var pointOutlineTransform = center.transform.Find("AIRSHIFT_EachYellowOutline");
+            Assert.That(fan.sprite.name, Is.EqualTo("Touch"));
+            Assert.That(center.sprite.name, Is.EqualTo("TouchPoint"));
+            Assert.That(touch.IsEach, Is.True);
+            Assert.That(fanOutlineTransform, Is.Not.Null);
+            Assert.That(pointOutlineTransform, Is.Not.Null);
+
+            var fanOutline = fanOutlineTransform!.GetComponent<SpriteRenderer>();
+            Assert.That(fanOutline.sprite, Is.SameAs(fan.sprite));
+            Assert.That(fanOutline.sharedMaterial, Is.SameAs(Resources.Load<Material>("Airshift/EachSilhouette")));
+
+            UpdateAt(touch, 0.6f);
+            Assert.That(fanOutline.color.a, Is.EqualTo(fan.color.a).Within(1e-4f));
+            UpdateAt(touch, 0.7f);
+            Assert.That(fanOutline.color.a, Is.EqualTo(1f).Within(1e-4f));
+        }
+
+        /// <summary>STANDARD Each TOUCH still uses original skin's Each fan/point and creates no outline.</summary>
+        [UnityTest]
+        public IEnumerator StandardEachTouch_PreservesOriginalEachSkin()
+        {
+            _rig.Controller.SetMods(AutoplayModeOption.Disable, airshiftEnabled: false);
+            var touch = _rig.SpawnTouch(GameplayRig.TouchInfo(SensorArea.B1, isEach: true));
+            yield return null;
+
+            var fan = touch.transform.GetChild(1).GetComponent<SpriteRenderer>();
+            var point = touch.transform.GetChild(0).GetComponent<SpriteRenderer>();
+            Assert.That(fan.sprite.name, Is.EqualTo("Touch_Each"));
+            Assert.That(point.sprite.name, Is.EqualTo("TouchPoint_Each"));
+            Assert.That(fan.transform.Find("AIRSHIFT_EachYellowOutline"), Is.Null);
+        }
+
         /// <summary>STANDARD TOUCH ignores required-hand metadata and keeps the authored point/border colors.</summary>
         [UnityTest]
         public IEnumerator StandardTouch_DoesNotUseHandedTint()
