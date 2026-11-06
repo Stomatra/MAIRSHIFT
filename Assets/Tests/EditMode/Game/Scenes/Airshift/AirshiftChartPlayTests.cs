@@ -257,12 +257,12 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
         /// SLIDE objects and their two independent hand bindings.
         /// </summary>
         [TestCase("(120){4}L1-4[8:1]*R1-4[8:1],E",
-                  AirshiftRequiredHand.Left, AirshiftRequiredHand.Right)]
+                  "Left", "Right")]
         [TestCase("(120){4}R1-4[8:1]*L1-4[8:1],E",
-                  AirshiftRequiredHand.Right, AirshiftRequiredHand.Left)]
+                  "Right", "Left")]
         public void GameSyntax_CompletelyIdenticalParallelLRSlidesRemainTwoNotes(
-            string source, AirshiftRequiredHand firstHand,
-            AirshiftRequiredHand secondHand)
+            string source, string firstHand,
+            string secondHand)
         {
             var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
             Assert.That(syntax.SimaiText,
@@ -276,8 +276,8 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             Assert.That(slides[0].RawContent, Is.EqualTo(slides[1].RawContent));
             var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
             Assert.That(bindings.Count, Is.EqualTo(2));
-            Assert.That(bindings[slides[0]], Is.EqualTo(firstHand));
-            Assert.That(bindings[slides[1]], Is.EqualTo(secondHand));
+            Assert.That(bindings[slides[0]].ToString(), Is.EqualTo(firstHand));
+            Assert.That(bindings[slides[1]].ToString(), Is.EqualTo(secondHand));
         }
 
         /// <summary>Ordinary unprefixed WIFI charts still reach MajSimai untouched.</summary>
