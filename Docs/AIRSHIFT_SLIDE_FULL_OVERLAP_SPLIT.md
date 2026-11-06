@@ -78,6 +78,35 @@ user's Unity Test Runner; the fix still requires a rerun.
 - EditMode: identical-path L/R Simai chart still produces two
   distinct slide objects and their separate hand bindings.
 
+## Fix for Game loading: AIRSHIFT folded duplicate SLIDE
+
+The user's real Game run produced
+`AIRSHIFT cannot hand-bind folded duplicate SLIDE` in
+`NoteLoader.RequiredHandForFoldedSlide`. The earlier parser fix allowed
+identical L/R paths, but the original `NoteFolding` still grouped
+both equivalent Simai notes into one `Count=2` folded entry, losing
+their distinct physical hand bindings before slide instantiation.
+
+The AIRSHIFT loader now passes its original per-note hand map into
+`NoteFolding`; this adds the physical hand to the folding group's
+identity. Fully identical opposite-hand L/R routes become **two**
+independent `Count=1` folded entries, each retaining its own L/R hand,
+full translated path, separate timing and score. It does not rely on
+matching an ambiguous text token to infer hand identity after merging.
+
+Untyped STANDARD slides still fold into the original `Count=2`
+record, and when folding is disabled, the loader uses each raw
+Simai note's identity directly rather than searching for the first
+matching path text.
+
+Additional EditMode tests in `NoteLoaderTests` check both hand orders,
+three coexisting notes, and STANDARD multiplicity. This fix must be
+compiled and exercised in the user's Unity Editor; it was not run by
+the assistant.
+
+`No such SFX: track_start_3.wav` is an unrelated missing audio
+asset log and was **not** altered by this change.
+
 ## Local Unity validation
 
 Run Unity 6000.3.17f1 **EditMode**
