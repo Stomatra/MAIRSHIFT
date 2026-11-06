@@ -63,6 +63,17 @@ namespace MajdataPlay.Scenes.Game
         private AirshiftRequiredHand RequiredHandForFoldedSlide(FoldedSimaiNote folded, SimaiNote[] sourceNotes)
         {
             if (HandBindings is null) return AirshiftRequiredHand.Any;
+
+            // The AIRSHIFT-aware folder keeps same-path opposite-hand SLIDEs
+            // separate and carries their original hand identities with them.
+            // Never infer one of these two identical notes by RawContent alone.
+            if (folded.RequiredHand != AirshiftRequiredHand.Any)
+            {
+                if (folded.Count != 1)
+                    throw new FormatException("AIRSHIFT cannot hand-bind folded duplicate SLIDE.");
+                return folded.RequiredHand;
+            }
+
             var assigned = AirshiftRequiredHand.Any;
             foreach (var source in sourceNotes)
             {
@@ -368,7 +379,7 @@ namespace MajdataPlay.Scenes.Game
                     List<TouchPoolingInfo>? airshiftTouchCandidates =
                         HandBindings is not null ? new List<TouchPoolingInfo>(2) : null;
                     PooledList<ITouchHoldGroupInfoProvider> touchHoldGroupMembers = new();
-                    var foldedNotes = NoteCreateHelper.NoteFolding(timing.Notes);
+                    var foldedNotes = NoteCreateHelper.NoteFolding(timing.Notes, HandBindings);
                     if (isSRandomEnabled)
                     {
                         if (!randomMappingTableLifeTime.InRange(timing.Timing))
@@ -453,7 +464,12 @@ namespace MajdataPlay.Scenes.Game
                                         TouchArea = note.TouchArea,
                                         Count = 1
                                     };
-                                    foldedSlide.RequiredHand = RequiredHandForFoldedSlide(foldedSlide, timing.Notes);
+                                    // When folding is disabled, 'note' is the
+                                    // original SimaiNote and can be hand-bound
+                                    // directly, even for two identical paths.
+                                    foldedSlide.RequiredHand = note is FoldedSimaiNote
+                                        ? RequiredHandForFoldedSlide(foldedSlide, timing.Notes)
+                                        : RequiredHandFor(note);
                                     if (SimaiSlideTranslator.IsSingleSlideCode(foldedSlide.RawContent))
                                     {
                                         CreateExtendSlide(timing, foldedSlide, eachNotes);
@@ -2481,7 +2497,9 @@ namespace MajdataPlay.Scenes.Game
                         break;
                 }
             }
-            public static SimaiNote[] NoteFolding(SimaiNote[] simaiNotes)
+            public static SimaiNote[] NoteFolding(
+                SimaiNote[] simaiNotes,
+                IReadOnlyDictionary<SimaiNote, AirshiftRequiredHand>? handBindings = null)
             {
                 if (!USERSETTING_NOTE_FOLDING)
                 {
@@ -2516,10 +2534,20 @@ namespace MajdataPlay.Scenes.Game
                 // Group only the slots filled for this timing point: a pooled array that EnsureLength grows into is not
                 // cleared, so slots past bufferIndex may still hold notes of an earlier timing point.
                 var usedSlides = new ArraySegment<FoldingSimaiNote>(buffer.AsArray(), 0, bufferIndex);
-                var groupedSlides = usedSlides.GroupBy(x => x);
+                // STANDARD still folds identical SLIDEs into Count=N.
+                // AIRSHIFT must not fold two equal paths assigned to
+                // different real hands into one scoring/judgement object.
+                // Include the original hand tag in the grouping key;
+                // untagged notes continue to use the original grouping.
+                var groupedSlides = usedSlides.GroupBy(x => (
+                    Note: x,
+                    Hand: handBindings is not null &&
+                          x.Origin is not null &&
+                          handBindings.TryGetValue(x.Origin, out var hand)
+                        ? hand : AirshiftRequiredHand.Any));
                 foreach (var slides in groupedSlides)
                 {
-                    var key = slides.Key;
+                    var key = slides.Key.Note;
                     if (!key.IsValid)
                     {
                         continue;
@@ -2544,7 +2572,8 @@ namespace MajdataPlay.Scenes.Game
                         SlideStartTime = key.SlideStartTime,
                         SlideTime = key.SlideTime,
                         TouchArea = key.TouchArea,
-                        Count = slides.Count()
+                        Count = slides.Count(),
+                        RequiredHand = slides.Key.Hand
                     };
                 }
                 var result = new SimaiNote[buffer2Index + buffer3Index];
