@@ -19,7 +19,9 @@ namespace MajdataPlay.Scenes.Airshift
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         // A pair of complete AIRSHIFT-hand-tagged paths sharing the
-        // start key is an L/R dual-hand fork. Unmarked '*' stays intact.
+        // start key is an L/R dual-hand fork. Both different trajectories
+        // and two fully identical L/R paths are valid. Unmarked '*'
+        // stays intact.
         private static readonly Regex HandedParallelPair = new(
             @"(?<![A-Za-z0-9_])(?<first>[LR](?<start>[1-8])[-^<>pqszvV][^,/*\x60\s]+)\*(?<second>[LR](?<endstart>[1-8])[-^<>pqszvV][^,/*\x60\s]+)(?=[,/\x60\s]|$)",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -84,14 +86,13 @@ namespace MajdataPlay.Scenes.Airshift
                 var start = pair.Groups["start"].Value;
                 if (first[0] == second[0] ||
                     start != pair.Groups["endstart"].Value ||
-                    first.Substring(1) == second.Substring(1) ||
                     first.IndexOf('w') >= 0 || second.IndexOf('w') >= 0 ||
                     first.IndexOf('[') < 0 || second.IndexOf('[') < 0 ||
                     !first.EndsWith("]", StringComparison.Ordinal) ||
                     !second.EndsWith("]", StringComparison.Ordinal))
                 {
                     throw new FormatException(
-                        "AIRSHIFT two-hand parallel SLIDE requires distinct full " +
+                        "AIRSHIFT two-hand parallel SLIDE requires two valid full " +
                         "paths from the same key, one L and one R: " + pair.Value);
                 }
                 var beat = fumen.LastIndexOf(',', pair.Index) + ":S:A" + start;
@@ -266,7 +267,10 @@ namespace MajdataPlay.Scenes.Airshift
                    firstHand == "R" && secondHand == "L";
         }
 
-        /// <summary>Only exactly two different complete opposite-hand branches.</summary>
+        /// <summary>
+        /// Exactly two complete opposite-hand SLIDE branches are valid,
+        /// including identical paths with independent L/R hand binding.
+        /// </summary>
         private static bool IsOppositeHandParallelSlidePair(IReadOnlyList<Match> notes)
         {
             if (notes.Count != 2 ||
@@ -277,9 +281,8 @@ namespace MajdataPlay.Scenes.Airshift
             }
             var first = notes[0].Groups["hand"].Value;
             var second = notes[1].Groups["hand"].Value;
-            return (first == "L" && second == "R" ||
-                    first == "R" && second == "L") &&
-                   notes[0].Groups["token"].Value != notes[1].Groups["token"].Value;
+            return first == "L" && second == "R" ||
+                   first == "R" && second == "L";
         }
 
         /// <summary>

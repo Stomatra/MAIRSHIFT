@@ -122,10 +122,10 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             Assert.That(syntax.Markers.Count, Is.Zero);
         }
 
-        /// <summary>One-hand, identical and ambiguous fork labels are rejected.</summary>
+        /// <summary>Same-hand, wrong-origin and ambiguous forks remain rejected.</summary>
         [TestCase("(120){4}L1-4[8:1]*L1-6[8:1],E")]
         [TestCase("(120){4}L1-4[8:1]*R2-6[8:1],E")]
-        [TestCase("(120){4}L1-4[8:1]*R1-4[8:1],E")]
+        [TestCase("(120){4}L1-4[8:1]*L1-4[8:1],E")]
         [TestCase("(120){4}L1-4[8:1]*R1w5[8:1],E")]
         [TestCase("(120){4}L1-4[8:1]/R1-6[8:1],E")]
         [TestCase("(120){4}L1-4[8:1]*R1-6[8:1]*L1-7[8:1],E")]
@@ -248,6 +248,36 @@ namespace MajdataPlay.Tests.Game.Scenes.Airshift
             Assert.That(slides.All(n => n.RawContent.Contains("w")), Is.True);
             Assert.That(AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax),
                 Is.Empty);
+        }
+
+
+        /// <summary>
+        /// The exact same path may be declared by both opposite hands,
+        /// either L/R order. MajSimai must still keep two separate
+        /// SLIDE objects and their two independent hand bindings.
+        /// </summary>
+        [TestCase("(120){4}L1-4[8:1]*R1-4[8:1],E",
+                  "Left", "Right")]
+        [TestCase("(120){4}R1-4[8:1]*L1-4[8:1],E",
+                  "Right", "Left")]
+        public void GameSyntax_CompletelyIdenticalParallelLRSlidesRemainTwoNotes(
+            string source, string firstHand,
+            string secondHand)
+        {
+            var syntax = AirshiftHandedSimaiSyntax.Preprocess(source);
+            Assert.That(syntax.SimaiText,
+                Is.EqualTo("(120){4}1-4[8:1]/1-4[8:1],E"));
+            Assert.That(syntax.Markers.Count, Is.EqualTo(2));
+            var chart = SimaiParser.ParseChart(syntax.SimaiText.AsSpan());
+            var slides = FlattenNotes(chart)
+                .Where(n => n.Type == SimaiNoteType.Slide).ToArray();
+            Assert.That(slides, Has.Length.EqualTo(2));
+            Assert.That(slides[0], Is.Not.SameAs(slides[1]));
+            Assert.That(slides[0].RawContent, Is.EqualTo(slides[1].RawContent));
+            var bindings = AirshiftHandedSimaiSyntax.BindGameNotes(chart, syntax);
+            Assert.That(bindings.Count, Is.EqualTo(2));
+            Assert.That(bindings[slides[0]].ToString(), Is.EqualTo(firstHand));
+            Assert.That(bindings[slides[1]].ToString(), Is.EqualTo(secondHand));
         }
 
         /// <summary>Ordinary unprefixed WIFI charts still reach MajSimai untouched.</summary>

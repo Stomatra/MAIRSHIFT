@@ -372,6 +372,104 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
                 Is.EqualTo(AirshiftRequiredHand.Right));
         }
 
+
+        /// <summary>
+        /// With note folding enabled, two identical L/R paths must produce
+        /// two independent folded note objects (Count=1 each), not a
+        /// single Count=2 note that loses its hand identity.
+        /// </summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AirshiftIdenticalLRSlides_FoldingPreservesTwoHandedNotes(bool reverse)
+        {
+            Assume.That(PrivateMember.GetStaticField<bool>(
+                typeof(NoteLoader), "USERSETTING_NOTE_FOLDING"), Is.True);
+
+            var first = CreateUnfoldedSlide("1-4[8:1]");
+            var second = CreateUnfoldedSlide("1-4[8:1]");
+            var firstHand = reverse ? AirshiftRequiredHand.Right : AirshiftRequiredHand.Left;
+            var secondHand = reverse ? AirshiftRequiredHand.Left : AirshiftRequiredHand.Right;
+            _loader.HandBindings = new Dictionary<SimaiNote, AirshiftRequiredHand>
+            {
+                [first] = firstHand,
+                [second] = secondHand
+            };
+
+            var sources = new[] { first, second };
+            var folded = RunNoteFolding(sources);
+            Assert.That(folded, Has.Length.EqualTo(2));
+            Assert.That(folded[0], Is.Not.SameAs(folded[1]));
+            Assert.That(folded[0].RawContent, Is.EqualTo(folded[1].RawContent));
+
+            for (var i = 0; i < folded.Length; i++)
+            {
+                Assert.That(folded[i].GetType().GetProperty("Count")!.GetValue(folded[i]),
+                    Is.EqualTo(1));
+                Assert.That(Invoke<AirshiftRequiredHand>(
+                    "RequiredHandForFoldedSlide", folded[i], sources),
+                    Is.EqualTo(i == 0 ? firstHand : secondHand));
+            }
+        }
+
+        /// <summary>
+        /// In STANDARD, two identical untagged SLIDEs still become one
+        /// Count=2 folded object, preserving the original game's behavior.
+        /// </summary>
+        [Test]
+        public void StandardIdenticalSlides_KeepOriginalFoldedMultiplicity()
+        {
+            Assume.That(PrivateMember.GetStaticField<bool>(
+                typeof(NoteLoader), "USERSETTING_NOTE_FOLDING"), Is.True);
+
+            _loader.HandBindings = null;
+            var source = new[]
+            {
+                CreateUnfoldedSlide("1-4[8:1]"),
+                CreateUnfoldedSlide("1-4[8:1]")
+            };
+
+            var folded = RunNoteFolding(source);
+            Assert.That(folded, Has.Length.EqualTo(1));
+            Assert.That(folded[0].GetType().GetProperty("Count")!.GetValue(folded[0]),
+                Is.EqualTo(2));
+            Assert.That(Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", folded[0], source),
+                Is.EqualTo(AirshiftRequiredHand.Any));
+        }
+
+        /// <summary>
+        /// AIRSHIFT leaves unrelated slides in the same timing point
+        /// independent, including a third unmarked, different path.
+        /// </summary>
+        [Test]
+        public void AirshiftIdenticalLRSlides_DoesNotAlterDifferentPathFolding()
+        {
+            Assume.That(PrivateMember.GetStaticField<bool>(
+                typeof(NoteLoader), "USERSETTING_NOTE_FOLDING"), Is.True);
+
+            var left = CreateUnfoldedSlide("1-4[8:1]");
+            var right = CreateUnfoldedSlide("1-4[8:1]");
+            var other = CreateUnfoldedSlide("1-6[8:1]");
+            _loader.HandBindings = new Dictionary<SimaiNote, AirshiftRequiredHand>
+            {
+                [left] = AirshiftRequiredHand.Left,
+                [right] = AirshiftRequiredHand.Right
+            };
+            var sources = new[] { left, right, other };
+            var folded = RunNoteFolding(sources);
+
+            Assert.That(folded, Has.Length.EqualTo(3));
+            Assert.That(Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", folded[0], sources),
+                Is.EqualTo(AirshiftRequiredHand.Left));
+            Assert.That(Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", folded[1], sources),
+                Is.EqualTo(AirshiftRequiredHand.Right));
+            Assert.That(Invoke<AirshiftRequiredHand>(
+                "RequiredHandForFoldedSlide", folded[2], sources),
+                Is.EqualTo(AirshiftRequiredHand.Any));
+        }
+
         /// <summary>Untagged or mismatched slide sources do not steal a hand marker.</summary>
         [Test]
         public void AirshiftHandedStraightSlide_DoesNotRetagOtherSlideShape()
@@ -772,6 +870,34 @@ namespace MajdataPlay.Tests.Game.GamePlay.Loading
         private T Invoke<T>(string name, params object?[] arguments)
         {
             return PrivateMember.Invoke<T>(_loader, name, arguments);
+        }
+
+
+        /// <summary>
+        /// Runs the real nested note folder through reflection, supplying
+        /// the AIRSHIFT binding map exactly as the Game loader now does.
+        /// </summary>
+        private SimaiNote[] RunNoteFolding(SimaiNote[] sourceNotes)
+        {
+            var helperType = typeof(NoteLoader)
+                .GetNestedType("NoteCreateHelper", BindingFlags.NonPublic)!;
+            var method = helperType.GetMethod("NoteFolding",
+                BindingFlags.Public | BindingFlags.Static)!;
+            return (SimaiNote[])method.Invoke(null,
+                new object?[] { sourceNotes, _loader.HandBindings })!;
+        }
+
+        /// <summary>Creates one original, un-folded Simai SLIDE note.</summary>
+        private static SimaiNote CreateUnfoldedSlide(string content)
+        {
+            return new SimaiNote
+            {
+                Type = SimaiNoteType.Slide,
+                StartPosition = 1,
+                RawContent = content,
+                SlideStartTime = 1,
+                SlideTime = 1
+            };
         }
 
         /// <summary>Creates the folded slide note type used by the slide factories.</summary>
