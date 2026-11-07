@@ -8,10 +8,11 @@ namespace MajdataPlay.Scenes.Airshift
     /// </summary>
     internal static class AirshiftControlTuning
     {
-        // Radius relative to the main playfield width.
-        // 0.05 = 5% radius, 10% diameter.
+        // AIRSHIFT_COMFORT_V04: cursor radius 2.5x larger than the tested v0.3 baseline.
+        // Normalized radius: 0.05f * 2.5f = 0.125f of the main playfield width.
+        // This shared parameter drives visual circle, A-ring disc contact and cursor clamping.
         internal static float CursorRadiusNormalized { get; set; }
-            = 0.05f;
+            = 0.125f;
 
         // Relative mouse movement multiplier.
         internal static float MouseSensitivity { get; set; }

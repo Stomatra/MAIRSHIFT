@@ -1,159 +1,110 @@
-# MAIRSHIFT
+# AIRSHIFT / MAIRSHIFT v0.4
 
-![license GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)
-![Discord](https://badgen.net/discord/online-members/AcWgZN7j6K)
-![Unity](https://img.shields.io/badge/Unity-6000.3.17f1-7e7e7e)
+基于 [MajdataPlay](https://github.com/TeamMajdata/MajdataPlay) 的 Unity 音游项目。
+保留 STANDARD 模式，并提供面向双手挥动输入的 AIRSHIFT 模式。
 
-> [!NOTE]
-> This software has no affair with the `big S four letter` company, please support the arcade whenever you can.
+## 当前可玩版本
 
-A Simai Player.
+v0.4 已接入 Android 平板摄像头，在设备上识别红、蓝目标并驱动双光标。
+蓝色对应左手，红色对应右手。摄像头输入可进入正式谱面的共享 Game 场景，
+沿用 AIRSHIFT 的 TAP、HOLD、TOUCH、SLIDE、WIFI 等判定路径和模式隔离。
 
-MAIRSHIFT is a derivative of MajdataPlay. Upstream credits are retained below.
-This repository is a public source checkout with selected licensed dependencies.
-Runtime media, proprietary dependencies and some fonts are intentionally withheld;
-see [publication status and setup limitations](PUBLICATION.md) before importing or building.
+- Android 完整游戏构建入口从 Init 启动，而非只启动摄像头诊断场景。
+- 光标半径从 v0.3 的 0.05 调整为 0.125，即原来的 2.5 倍。
+- 摄像头映射操作范围采用原来的 85%，不缩小游戏圆盘或传感器几何。
+- 保留桌面鼠标模拟、双光标、指定手音符及既有 SLIDE/WIFI 机制。
+- STANDARD 和 AIRSHIFT 由模式标志隔离，AIRSHIFT 不写入 STANDARD 正式成绩。
 
-This project is based on [@LeZi9916](https://github.com/LeZi9916) 's DJAuto branch for [MajdataView](https://github.com/LingFeng-bbben/MajdataView).
+这是公开测试阶段的开发版本。现有 APK 的构建与试玩情况由项目所有者提供；
+本仓库同步的重点是可复现的源码，不代表所有设备均通过兼容性和性能验证。
+ESP32/IMU 无线双棒属于后续硬件方案，不能与已实现的摄像头光学识别混为一谈。
 
-Simai is a maimai chart discription language developed by [Celeca](https://twitter.com/formiku39854)
+## 克隆与开发
 
-## Supported platforms
+使用 **Unity 6000.3.17f1**。这是 Unity 工程，不能用生成的 .sln/.csproj 代替 Unity 构建。
 
-- Windows
-- [Linux](https://github.com/LingFeng-bbben/MajdataPlay/wiki/%E5%B9%B3%E5%8F%B0%E7%9B%B8%E5%85%B3#linux) (Partially Supported)
-- macOS
-- Android
-- iOS
-
-> [!Note]
-> On macOS, only the DAO device is tested and fully supported. Other devices are untested.
-
-## Source publication
-
-Clone this repository with Git LFS and all submodules. This publication does not
-include a verified standalone player or the local development copy's bundled media.
-
-## Getting Started
-
-> [!WARNING]
-> This repository contains a Unity project, not a standard C#/.NET project.
->
-> Do not open or build it using dotnet, Visual Studio solution files, or other .NET build tools.
->
-> The project must be opened using the Unity Editor.
-
-### Requirements
-
-- Unity Editor (version specified in ProjectSettings/ProjectVersion.txt), with Android Build Support (SDK API 36 and OpenJDK) for Java-wrapper generation, including desktop Editor imports
-
-- .NET 9 SDK for the independent Android Java wrapper CLI (not for building the Unity project)
-
-- git
-
-- Unity Hub
-
-### Clone the Repository
-
-Clone the project using Git:
-
-```bash
+```sh
 git lfs install
 git clone --recurse-submodules https://github.com/Stomatra/MAIRSHIFT.git MAIRSHIFT
 cd MAIRSHIFT
 git lfs pull
-```
-
-### Initialize Submodules
-
-This project uses Git submodules. After cloning, run:
-
-```bash
 git submodule update --init --recursive
+git lfs fsck
 ```
 
-If you already cloned the repository without submodules, you can also run:
+安装 Android Build Support（SDK、NDK、OpenJDK），然后使用 Unity Hub 打开项目。
+Android Java wrapper 的生成／重建步骤见
+[平台说明](Assets/Plugins/MajdataPlay/Platform/Android/README.md) 和
+[wrapper 工具说明](Tools/AndroidJavaWrapper/README.md)。
 
-```bash
-git submodule sync
-git submodule update --init --recursive
-```
+完整 Android 构建使用 **AIRSHIFT > Build Android Full Game APK**；
+摄像头诊断构建使用 **AIRSHIFT > Build Android Camera Test APK**。
+构建产物保存在忽略的 Builds/Android 目录，不加入源码提交。
+详细设置、权限、启动场景、调参和验证边界见
+[Android v0.4 构建说明](Docs/AIRSHIFT_ANDROID_V04.md)。
 
-### Install the Required Unity Version
+## 素材与可复现范围
 
-This project must be opened with the Unity version specified in:
+**公开源码不包含本地完整素材包。** 当前音乐、曲目、背景视频、语音、部分皮肤、
+Live2D 模型／SDK、BASS 原生库和部分字体仍需单独确认再分发权限。
+“可以使用”不等同于“允许上传到公开 GitHub 仓库或嵌入公开 APK”。
+不能把本项目的 GPL-3.0 错误地套用于这些第三方内容。
 
-```text
-ProjectSettings/ProjectVersion.txt
-```
+克隆者可以检查和编译公开代码；要获得完整游戏体验，必须自行提供合法授权的
+资源与必要依赖。缺少素材可能导致字体／场景引用缺失、无声音或无法完成游玩。
+Live2D 已可选化，缺少 SDK 不会让基础编辑器程序集固定依赖它。
 
-Example:
+- [资源授权及第三方政策](Docs/PUBLIC_RESOURCE_POLICY.md)
+- [公开源码范围及检查记录](PUBLICATION.md)
+- [原始许可证](LICENSE)
 
-```text
-m_EditorVersion: 6000.3.17f1
-```
+当前未把本地 APK 作为 GitHub Release 附件发布，因为其嵌入资源的公开再分发
+证据尚不完整。请勿从“源码已公开”推断所有本地测试包也可公开分发。
 
-Install this version using Unity Hub.
+## 参与与反馈
 
-### Generate the Android Java Bindings
+欢迎谱面设计、试玩反馈和开发协作。问题请提交到
+[GitHub Issues](https://github.com/Stomatra/MAIRSHIFT/issues)，说明设备、版本和复现步骤，
+分享日志前先移除个人信息和凭据。提交素材前须确认原作者、来源、公开再分发权和署名要求。
 
-The storage backend uses a locally compiled Android Java wrapper DLL.
-Generate them with the independent CLI before the first Unity import:
+## 来源、许可与声明
 
-```powershell
-Push-Location Tools/CSharp/AndroidJavaWrapperGenerator
-dotnet run --project AndroidJavaWrapperGenerator.csproj -- --project ../../.. --unity-data "C:/Program Files/Unity Editors/6000.3.17f1/Editor/Data" --no-docs
-Pop-Location
-```
+本项目基于 TeamMajdata/MajdataPlay 及其原有贡献开发，保留原项目和第三方版权声明。
+相应衍生代码按原有 GPL-3.0 条款发布，修改以 Git 提交记录为准。
+字体、Skia、FFmpeg、NuGet 依赖及子模块按各自附带许可声明处理。
+ManagedBass 开源包装层的许可不等于 BASS 原生库的许可。
 
-This builds the independent generator and `Tools/AndroidJavaWrapper` library;
-Unity-generated projects are built only by Unity.
-Pass another `--unity-data` directory for a different installation and `--sdk`
-for a separately configured Android SDK. Fresh checkouts and CI need the same
-binding generation step. Sources are generated into `Tools/AndroidJavaWrapper/src`,
-alongside tracked `.e.cs` partial extensions. The standalone project compiles
-`MajdataPlay.Platform.Android.Runtime.dll` and installs it into
-`Assets/Plugins/MajdataPlay/Platform/Android` only after successful compilation.
-The project no longer requires the legacy Roslyn analyzer.
+AIRSHIFT / MAIRSHIFT 是独立爱好者项目，不代表 MajdataPlay 官方，亦不代表任何
+商业街机游戏权利人。本项目不承诺所有硬件、谱面或输入条件下的完整兼容性。
 
-The Editor command **Tools > MajdataPlay > Android > Regenerate Java wrappers**
-uses the independent `Tools/CSharp/AndroidJavaWrapperGenerator` CLI to generate
-the complete SDK/BCL plus Java inputs from `Assets/Plugins/Android` and the current
-Unity Android player. It runs in the background with official documentation and
-compiles and installs the wrapper DLL. Helpers use
-`MajdataPlay.Platform.Android.Runtime`; bindings use its `Bindings` namespace.
-Automatic Java asset refreshes reuse cached pages and fetch missing documentation. See
-`Assets/Plugins/MajdataPlay/Platform/Android/README.md` for output ownership,
-cancellation and setup. See `Tools/AndroidJavaWrapper/README.md` for partial
-extensions and rebuilding the DLL without regenerating Java bindings.
+## English
 
-### Open the Project in Unity Hub
+AIRSHIFT v0.4 is a Unity rhythm-game project derived from MajdataPlay. Android
+on-device red/blue camera tracking feeds two cursors into the existing chart
+play/judgement paths. Blue represents the left hand and red the right hand.
+The full-game Android entry boots through Init; the diagnostic camera entry is
+separate. STANDARD remains mode-gated from AIRSHIFT.
 
-1. Open Unity Hub
+Use Unity 6000.3.17f1, Git LFS and all six pinned submodules. Install Android Build
+Support and follow the linked Android v0.4 and Java-wrapper setup instructions.
+The v0.4 normalized cursor radius is 0.125 (2.5 times v0.3), and camera movement
+mapping uses a physical reach scale of 0.85. This is an experimental public-test
+source version; device compatibility and actual camera performance still need
+hardware verification. ESP32/IMU controllers are a separate future direction.
 
-2. Click Add Project
+The source checkout omits media and proprietary resources without confirmed
+public redistribution rights. Obtain properly licensed local resources and
+native dependencies for a complete playable package. A successful compile is
+not a complete game distribution. Existing local APKs are not uploaded as
+Release assets while their embedded resources lack redistribution evidence.
 
-3. Select the cloned project folder
+Covered derivative code remains under GPL-3.0 with upstream credits and notices
+retained. Songs, charts, images, fonts, models, voices and proprietary libraries
+have separate rights; code licensing does not grant their redistribution.
 
-4. Ensure the correct Unity version is selected
+## Upstream acknowledgements retained
 
-5. Open the project
-
-## Guidance
-
-[Docs](https://docs.majdata.net) | [WIKI](https://github.com/LingFeng-bbben/MajdataPlay/wiki)
-
-## Upstream releases
-
-[Stable](https://github.com/TeamMajdata/MajdataPlay_Build) | [Nightly](https://github.com/LingFeng-bbben/MajdataPlay/releases/tag/nightly)
-
-## Reporting Problems
-
-Feel free if you wanna participate in coding or testing!!
-
-Please report MAIRSHIFT problems to the [issues page](https://github.com/Stomatra/MAIRSHIFT/issues).
-
-The log files should be in `Logs/`
+MajdataPlay is based on [LeZi9916](https://github.com/LeZi9916)'s DJAuto branch of [MajdataView](https://github.com/LingFeng-bbben/MajdataView). Simai was developed by [Celeca](https://twitter.com/formiku39854).
 
 ## References
 

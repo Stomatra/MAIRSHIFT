@@ -473,8 +473,10 @@ namespace MajdataPlay.Scenes.List
         {
             if (MajEnv.Settings.Mod.AirshiftEnabled)
             {
-        #if UNITY_EDITOR
-                // Editor-only AIRSHIFT integration test.
+        // AIRSHIFT_ANDROID_FULL_V03: the mobile build may use the shared Game.
+        // The Mod flag disables STANDARD score saving in ResultScreenManager.
+        #if UNITY_EDITOR || UNITY_ANDROID
+                // Experimental AIRSHIFT input and judgement path.
                 // Never launch if the STANDARD score guard is inactive.
                 if (!MajEnv.Settings.Mod.IsAnyModActive())
                 {
@@ -485,8 +487,7 @@ namespace MajdataPlay.Scenes.List
                 }
 
                 Debug.LogWarning(
-                    "[AIRSHIFT] Unity Editor 测试模式：仅验证 TAP 输入，" +
-                    "其他音符尚未适配，不能作为正式成绩。"
+                    "[AIRSHIFT] AIRSHIFT 摄像头/手势判定仍属测试；不会保存为 STANDARD 正式成绩。"
                 );
 
                 EnterGame();

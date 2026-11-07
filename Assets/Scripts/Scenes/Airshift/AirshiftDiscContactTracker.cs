@@ -126,6 +126,16 @@ namespace MajdataPlay.Scenes.Airshift
             return ((_masks[0] | _masks[1]) & bit) != 0;
         }
 
+        // AIRSHIFT_ANDROID_FULL_V03: the Android camera can lose one hand while the other remains visible.
+        internal bool IsAreaContacted(int startPos, HandId hand)
+        {
+            if (startPos < 1 || startPos > 8)
+                return false;
+
+            int bit = 1 << (startPos - 1);
+            return (_masks[(int)hand] & bit) != 0;
+        }
+
         private void EmitMaskChanges(
             AirshiftMotionSample sample,
             Vector2 position,

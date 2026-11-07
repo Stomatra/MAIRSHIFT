@@ -163,8 +163,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a5f2c1b48ed4fa9a3b8f971c1000001, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MajdataPlay.Core::MajdataPlay.Scenes.Airshift.AirshiftGameManager
+  _enableCameraInput: 1
   _gameBackground: {fileID: 21300000, guid: 5d6e26ec09a15154b8b2df1e863994cb, type: 3}
-  _gameCircle: {fileID: 21300000, guid: 85371318f6efbc54a8702e8e1835ee9d, type: 3}
 --- !u!1001 &299964703
 PrefabInstance:
   m_ObjectHideFlags: 0

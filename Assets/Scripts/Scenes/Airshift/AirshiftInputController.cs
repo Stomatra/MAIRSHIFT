@@ -15,6 +15,11 @@ namespace MajdataPlay.Scenes.Airshift
     {
         private readonly AirshiftDualCursorTracker _cursorTracker;
         private readonly AirshiftMouseSimulationSource _mouseSource;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        // AIRSHIFT_ANDROID_FULL_V03: native on-device camera, not browser UDP or mouse.
+        private readonly AirshiftAndroidCameraSource _androidCameraSource;
+        private bool _showCameraDiagnostics = true;
+#endif
         private readonly AirshiftTapGestureDetector _tapGestureDetector;
         private readonly AirshiftDiscContactTracker _discContactTracker;
         private readonly AirshiftSensorTracker _sensorTracker;
@@ -52,6 +57,9 @@ namespace MajdataPlay.Scenes.Airshift
             );
 
             _mouseSource = new AirshiftMouseSimulationSource();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _androidCameraSource = new AirshiftAndroidCameraSource();
+#endif
 
             _tapGestureDetector = new AirshiftTapGestureDetector(
                 AirshiftTapGestureSettings.Prototype
@@ -124,12 +132,28 @@ namespace MajdataPlay.Scenes.Airshift
 
             _pendingTouches.BeginFrame();
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // AIRSHIFT_ANDROID_FULL_V03: feed existing gesture, HOLD, TOUCH,
+            // SLIDE, and WIFI code through the shared cursor tracker.
+            // On reacquisition/loss, Reset() suppresses phantom motion events.
+            _androidCameraSource.Poll(_cursorTracker, timestamp, () => Reset(timestamp));
+
+            // A vanished stick must NOT keep an old slide sensor contact alive.
+            SlideFrameLeftStart = _androidCameraSource.IsHandVisible(HandId.Left)
+                ? SlideFrameLeftStart : AirshiftSensorArea.None;
+            SlideFrameRightStart = _androidCameraSource.IsHandVisible(HandId.Right)
+                ? SlideFrameRightStart : AirshiftSensorArea.None;
+            if (!_androidCameraSource.IsHandVisible(HandId.Left) ||
+                !_androidCameraSource.IsHandVisible(HandId.Right))
+                WifiFrameStart = AirshiftSensorArea.None;
+#else
             bool discontinuity = _mouseSource.Poll(
                 _cursorTracker,
                 playfieldWidth,
                 timestamp,
                 hasFocus
             );
+#endif
 
 #if UNITY_EDITOR
             // Switch which virtual hand receives mouse movement.
@@ -149,10 +173,12 @@ namespace MajdataPlay.Scenes.Airshift
             }
 #endif
 
+#if !UNITY_ANDROID || UNITY_EDITOR
             if (discontinuity)
             {
                 _tapGestureDetector.Reset();
             }
+#endif
         }
 
         internal Vector2 GetCursorPosition(HandId hand)
@@ -203,6 +229,13 @@ namespace MajdataPlay.Scenes.Airshift
         internal IReadOnlyList<AirshiftWifiMidpointTransition>
             GetOrderedWifiMidpointTransitions()
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // WIFI midpoint requires both tracked sticks; a lost hand must
+            // not contribute its last known position to the moving midpoint.
+            if (!_androidCameraSource.IsHandVisible(HandId.Left) ||
+                !_androidCameraSource.IsHandVisible(HandId.Right))
+                return Array.Empty<AirshiftWifiMidpointTransition>();
+#endif
             if (!_wifiTransitionsSorted)
             {
                 _wifiTransitions.Sort((a, b) =>
@@ -230,7 +263,14 @@ namespace MajdataPlay.Scenes.Airshift
                 AirshiftControlTuning.CursorRadiusNormalized
             );
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return (_androidCameraSource.IsHandVisible(HandId.Left) &&
+                    _discContactTracker.IsAreaContacted(startPos, HandId.Left)) ||
+                   (_androidCameraSource.IsHandVisible(HandId.Right) &&
+                    _discContactTracker.IsAreaContacted(startPos, HandId.Right));
+#else
             return _discContactTracker.IsAreaContacted(startPos);
+#endif
         }
 
         internal bool TryConsumeTouch(
@@ -250,9 +290,18 @@ namespace MajdataPlay.Scenes.Airshift
 
         internal bool IsTouchContacted(int sensorArea)
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_disposed || !_hasFocus)
+                return false;
+            return (_androidCameraSource.IsHandVisible(HandId.Left) &&
+                    (int)_sensorTracker.LeftArea == sensorArea) ||
+                   (_androidCameraSource.IsHandVisible(HandId.Right) &&
+                    (int)_sensorTracker.RightArea == sensorArea);
+#else
             return !_disposed
                 && _hasFocus
                 && _sensorTracker.IsAreaContacted(sensorArea);
+#endif
         }
    
         internal IReadOnlyList<AirshiftSensorTransition>
@@ -396,6 +445,30 @@ namespace MajdataPlay.Scenes.Airshift
 #endif
         }
 
+        // AIRSHIFT_ANDROID_FULL_V03: only draw the camera UI during Android gameplay.
+        internal void DrawAndroidCameraOverlay()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_disposed)
+                return;
+            var toggle = new Rect(Screen.width - 126f, Screen.height - 56f, 118f, 48f);
+            if (GUI.Button(toggle, _showCameraDiagnostics ? "CAM HIDE" : "CAM SHOW"))
+                _showCameraDiagnostics = !_showCameraDiagnostics;
+            if (_showCameraDiagnostics)
+                _androidCameraSource.DrawOverlay();
+#endif
+        }
+
+        internal void OnAndroidApplicationPause(bool paused)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_disposed)
+                return;
+            _androidCameraSource.OnPause(paused);
+            Reset(Time.realtimeSinceStartupAsDouble);
+#endif
+        }
+
         public void Dispose()
         {
             if (_disposed)
@@ -404,6 +477,9 @@ namespace MajdataPlay.Scenes.Airshift
             }
 
             _disposed = true;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _androidCameraSource.Dispose();
+#endif
 
             _cursorTracker.MotionSampled -= OnMotionSampled;
             _discContactTracker.AreaTransitioned -= OnAreaTransitioned;

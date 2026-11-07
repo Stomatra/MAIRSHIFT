@@ -11,6 +11,13 @@ namespace MajdataPlay.Scenes.Airshift
     /// </summary>
     public sealed class AirshiftGameManager : MonoBehaviour
     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private AirshiftAndroidCameraSource? _androidCameraSource;
+#endif
+        // Opt-in: enable on AirshiftGame scene component, not on STANDARD scenes.
+        [SerializeField] private bool _enableCameraInput = false;
+        private AirshiftCameraUdpSource? _cameraSource;
+
         /// <summary>The original STANDARD main-game background sprite.</summary>
         [SerializeField]
         private Sprite? _gameBackground;
@@ -76,6 +83,20 @@ namespace MajdataPlay.Scenes.Airshift
                 new Vector2(0.62f, 0.5f),
                 timestamp);
             _mouseSource = new AirshiftMouseSimulationSource();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _androidCameraSource = new AirshiftAndroidCameraSource();
+            _enableCameraInput = false; // Android reads its own camera, not editor UDP.
+#endif
+            if (_enableCameraInput)
+            {
+                Application.runInBackground = true;
+                try { _cameraSource = new AirshiftCameraUdpSource(19476); }
+                catch (Exception ex)
+                {
+                    Debug.LogError("[AIRSHIFT CAMERA] Could not open UDP 19476: " + ex.Message);
+                    _enableCameraInput = false;
+                }
+            }
             _keyboardSource = new AirshiftKeyboardDebugSource();
             _debugView = new AirshiftDebugView();
             _chartView = new AirshiftChartView(_gameBackground);
@@ -93,7 +114,7 @@ namespace MajdataPlay.Scenes.Airshift
             _tapJudge.NoteResolved += OnTapNoteResolved;
             _sensorTracker.Transitioned += OnSensorTransitioned;
             _sensorTracker.ActionDetected += OnSensorActionDetected;
-            _isFocused = Application.isFocused;
+            _isFocused = Application.isFocused || _enableCameraInput;
             _mouseSource.SuppressNextDelta(_cursorTracker, timestamp);
         }
 
@@ -121,7 +142,7 @@ namespace MajdataPlay.Scenes.Airshift
 
         private void OnEnable()
         {
-            _isFocused = Application.isFocused;
+            _isFocused = Application.isFocused || _enableCameraInput;
             var timestamp = Time.realtimeSinceStartupAsDouble;
             _mouseSource.SuppressNextDelta(_cursorTracker, timestamp);
             if (_isFocused)
@@ -150,7 +171,7 @@ namespace MajdataPlay.Scenes.Airshift
             {
                 return;
             }
-            if (_isFocused != Application.isFocused)
+            if (_isFocused != (Application.isFocused || _enableCameraInput))
             {
                 HandleFocusChange(Application.isFocused);
             }
@@ -199,16 +220,34 @@ namespace MajdataPlay.Scenes.Airshift
                 _tapTestTime = _tapClock.GetTime(timestamp);
                 _tapJudge.UpdateMisses(_tapTestTime);
             }
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _androidCameraSource?.Poll(_cursorTracker, timestamp, () =>
+            {
+                _tapGestureDetector.Reset();
+                _sensorTracker.Reset(_cursorTracker.LeftHand.Position, _cursorTracker.RightHand.Position);
+            });
+#endif
             if (!_layout.TryGetDisplayRects(out var playfield, out _))
             {
                 _mouseSource.SuppressNextDelta(_cursorTracker, timestamp);
                 return;
             }
-            if (_mouseSource.Poll(_cursorTracker, playfield.width, timestamp, _isFocused))
+#if !UNITY_ANDROID || UNITY_EDITOR
+            if (_enableCameraInput && _cameraSource != null)
+            {
+                // Edge can have focus while Unity plays in the background.
+                _cameraSource.Poll(_cursorTracker, timestamp, () =>
+                {
+                    _tapGestureDetector.Reset();
+                    _sensorTracker.Reset(_cursorTracker.LeftHand.Position, _cursorTracker.RightHand.Position);
+                });
+            }
+            else if (_mouseSource.Poll(_cursorTracker, playfield.width, timestamp, _isFocused))
             {
                 _tapGestureDetector.Reset();
                 _sensorTracker.Reset(_cursorTracker.LeftHand.Position, _cursorTracker.RightHand.Position);
             }
+#endif
             _chartPlayer?.Update(_sensorTracker.LeftArea, _sensorTracker.RightArea);
             if (_chartPlayer is not null)
             {
@@ -218,6 +257,9 @@ namespace MajdataPlay.Scenes.Airshift
 
         private void OnGUI()
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _androidCameraSource?.DrawOverlay();
+#endif
             if (!_layout.TryGetDisplayRects(out var playfield, out var subDisplay))
             {
                 return;
@@ -247,6 +289,13 @@ namespace MajdataPlay.Scenes.Airshift
                 _isDebugOverlayVisible);
         }
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private void OnApplicationPause(bool paused)
+        {
+            _androidCameraSource?.OnPause(paused);
+        }
+#endif
+
         private void OnApplicationFocus(bool hasFocus)
         {
             HandleFocusChange(hasFocus);
@@ -271,6 +320,10 @@ namespace MajdataPlay.Scenes.Airshift
                 _chartPlayer.Completed -= OnChartCompleted;
                 _chartPlayer.Dispose();
             }
+            _cameraSource?.Dispose();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _androidCameraSource?.Dispose();
+#endif
             _debugView.Dispose();
             _chartView.Dispose();
             if (!_preserveSessionForResult)
@@ -285,12 +338,12 @@ namespace MajdataPlay.Scenes.Airshift
         /// <param name="hasFocus">Whether the Game view now owns focus.</param>
         private void HandleFocusChange(bool hasFocus)
         {
-            _isFocused = hasFocus;
+            _isFocused = hasFocus || _enableCameraInput;
             var timestamp = Time.realtimeSinceStartupAsDouble;
             _mouseSource.SuppressNextDelta(_cursorTracker, timestamp);
             _cursorTracker.ResetMotionBaselines(timestamp);
             _tapGestureDetector.Reset();
-            if (!hasFocus)
+            if (!_isFocused)
             {
                 _keyboardSource.ReleaseAll(timestamp);
                 _tapClock.Pause(timestamp);
@@ -302,7 +355,7 @@ namespace MajdataPlay.Scenes.Airshift
                 _chartPlayer?.Resume();
             }
             _sensorTracker.Reset(_cursorTracker.LeftHand.Position, _cursorTracker.RightHand.Position);
-            _debugView.AddSystemEvent(timestamp, hasFocus ? "FOCUS RESTORED" : "FOCUS LOST");
+            _debugView.AddSystemEvent(timestamp, _isFocused ? "FOCUS RESTORED" : "FOCUS LOST");
         }
 
         /// <summary>

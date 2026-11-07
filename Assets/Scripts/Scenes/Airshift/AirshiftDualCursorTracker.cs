@@ -150,6 +150,37 @@ namespace MajdataPlay.Scenes.Airshift
             return sample;
         }
 
+        /// <summary>Camera absolute-position sample for either hand (keeps user-selected active hand).</summary>
+        internal void ApplyHandPosition(HandId handId, Vector2 normalizedPosition, double timestamp,
+            AirshiftInputSource inputSource)
+        {
+            var previousActive = ActiveHand;
+            if (previousActive != handId) ToggleActiveHand();
+            try
+            {
+                ApplyActiveDelta(normalizedPosition - GetHand(handId).Position, timestamp, inputSource);
+            }
+            finally
+            {
+                if (previousActive != handId) ToggleActiveHand();
+            }
+        }
+
+        /// <summary>Reacquire a lost camera target without creating a false velocity or hit.</summary>
+        internal void SnapHandPosition(HandId handId, Vector2 normalizedPosition, double timestamp)
+        {
+            ResetHandWithoutEvents(GetHand(handId),
+                AirshiftControlTuning.ClampCursorPosition(normalizedPosition), timestamp);
+        }
+
+        /// <summary>Stop velocity when a camera target is not visible.</summary>
+        internal void MarkHandIdle(HandId handId, double timestamp)
+        {
+            var hand = GetHand(handId);
+            hand.Timestamp = Math.Max(timestamp, hand.Timestamp);
+            hand.Velocity = Vector2.zero;
+        }
+
         /// <summary>
         /// Marks the active hand stationary without emitting a motion or area event.
         /// </summary>

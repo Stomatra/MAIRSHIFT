@@ -167,3 +167,46 @@ out.log
 /Tools/Tests/FFmpegValidation/bin
 /Tools/Tests/FFmpegValidation/obj
 /Runtime
+
+# Local source backups and publication audit outputs are never project source.
+/*-backup-*/
+/*-Backup-*/
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+*.keystore
+*.jks
+*.p12
+*.pfx
+.env
+.env.*
+
+# Withheld third-party dependencies: see Docs/PUBLIC_RESOURCE_POLICY.md.
+/Assets/Plugins/Live2D/
+/Assets/Plugins/Live2D.meta
+/Assets/Plugins/Un4seen.Bass/
+/Assets/Plugins/Un4seen.Bass.meta
+/ArtMaterials/
+/Doc/
+/ThirdParty/SkiaForUnity/tests/
+/ThirdParty/SkiaForUnity/tests.meta
+/Assets/Fonts/**/*Alimama*
+/Assets/Fonts/**/*Minimoon*
+/Assets/Fonts/**/*rounded-x-mplus*
+
+# Runtime media needs asset-specific public redistribution permission.
+# Keep the tracked directory notices and original folder GUIDs.
+/Assets/StreamingAssets/MaiCharts/*
+!/Assets/StreamingAssets/MaiCharts/PUBLICATION-NOTICE.txt
+!/Assets/StreamingAssets/MaiCharts/PUBLICATION-NOTICE.txt.meta
+/Assets/StreamingAssets/MovieBG/*
+!/Assets/StreamingAssets/MovieBG/PUBLICATION-NOTICE.txt
+!/Assets/StreamingAssets/MovieBG/PUBLICATION-NOTICE.txt.meta
+/Assets/StreamingAssets/SFX/*
+!/Assets/StreamingAssets/SFX/PUBLICATION-NOTICE.txt
+!/Assets/StreamingAssets/SFX/PUBLICATION-NOTICE.txt.meta
+/Assets/StreamingAssets/Skins/*
+!/Assets/StreamingAssets/Skins/PUBLICATION-NOTICE.txt
+!/Assets/StreamingAssets/Skins/PUBLICATION-NOTICE.txt.meta
+/Assets/StreamingAssets/Voice/*
+!/Assets/StreamingAssets/Voice/PUBLICATION-NOTICE.txt
+!/Assets/StreamingAssets/Voice/PUBLICATION-NOTICE.txt.meta

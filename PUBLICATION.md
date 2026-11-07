@@ -1,8 +1,14 @@
-# Public source publication
+# Public source publication — AIRSHIFT v0.4
 
 This checkout contains MAIRSHIFT project source, Unity configuration, scenes,
 tests, submodule references and selected dependencies. It is not a complete,
 verified game distribution. Use **Unity 6000.3.17f1** as pinned in ProjectSettings.
+
+The 2026-11-07 synchronization includes on-device Android red/blue camera input,
+the full-game Android build entry, shared chart gameplay integration, and the
+v0.4 cursor/reach tuning. See [Android setup](Docs/AIRSHIFT_ANDROID_V04.md) and
+[resource rights policy](Docs/PUBLIC_RESOURCE_POLICY.md). No additional local
+third-party media or local APK was approved for public redistribution.
 
 ## Included dependencies
 
@@ -52,7 +58,31 @@ Unity editor path and Android build support. The complete project must be built
 by Unity, rather than by its generated .csproj or solution files.
 Supply only locally authorized resources for the omitted items above.
 
-## Publication checks
+## 2026-11-07 v0.4 source checks
+
+In an isolated public-source checkout, Unity 6000.3.17f1 completed Editor import
+with exit code 0. The relevant EditMode suite passed **41 tests, 0 failures,
+0 skipped**, including camera hand/source identity, reacquisition/loss boundaries,
+per-hand disc contacts and existing STANDARD/input isolation checks.
+
+Unity's real Android Player script compilation passed with **67 assemblies**.
+The compiled Player core contains AirshiftAndroidCameraSource; the Editor core
+does not. Thus the Android-only branch was compiled, rather than treating Editor
+compilation as Android coverage. The reusable check source is under
+Tools/Tests/Modules/AirshiftV04Publication.
+
+These checks used no local Live2D SDK, BASS binaries, music or voice pack. They do
+not establish a complete playable APK, native/audio/GPU integration or real camera
+behavior on a tablet. No APK was built or distributed by this synchronization.
+The owner's existing local package remains separate from these source checks.
+
+The current source keeps the existing LFS rules and six submodule revisions.
+No new third-party media was introduced. Historical tracked media without
+asset-specific provenance remains a separate rights-review item, not implicitly
+approved by the source code license. Existing warnings and the historical results
+below are not relabeled as successful fresh platform/device validation.
+
+## Historical 2026-11-04 publication checks
 
 The 2026-11-04 audit verified all nine FFmpeg target manifests, native hashes,
 machine types, license notices and Android 16 KiB alignment. Unity 6000.3.17f1
@@ -67,12 +97,11 @@ could not compile because its source list omits existing SettingTranslation,
 SettingVisibility and SettingValueSelection sources; this harness failure is
 separate from Unity project compilation.
 
-A complete fresh import was attempted with Unity 6000.3.17f1. It exited with
-compiler error CS0246 in `Assets/Scripts/Editor/CubismPickingBuildProcessor.cs:1`
-because the intentionally withheld Live2D namespace is unavailable. No complete
-Player build or runtime test was performed. Resolve this dependency under suitable
-terms, or adapt the optional integration in a separate development change, before
-claiming the public project builds successfully. The import also reported existing
+The initial November 4 import failed with a missing Live2D namespace. That
+specific blocker was subsequently resolved by the optional integration under
+Assets/Scripts/Editor; the current base editor assembly has no fixed SDK
+reference. The earlier audit did not perform a complete Player build or runtime
+test. The historical import also reported existing
 nullable/compiler warnings and duplicate System.Runtime.CompilerServices.Unsafe
 versions; these were not silently counted as successful validation.
 

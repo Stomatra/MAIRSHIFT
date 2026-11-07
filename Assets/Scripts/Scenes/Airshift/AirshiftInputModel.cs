@@ -51,6 +51,8 @@ namespace MajdataPlay.Scenes.Airshift
         MouseSimulation = 0,
         /// <summary>Main-row keyboard buttons used for local debugging.</summary>
         KeyboardDebug = 1,
+        /// <summary>Red/blue camera spot coordinates.</summary>
+        CameraTracking = 2,
     }
 
     /// <summary>

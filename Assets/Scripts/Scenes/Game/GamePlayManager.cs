@@ -1,4 +1,4 @@
-﻿using Cysharp.Text;
+using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using MajdataPlay.Diagnostics;
 using MajdataPlay.Editor;
@@ -1548,7 +1548,9 @@ namespace MajdataPlay.Scenes.Game
             MajInstances.SceneSwitcher.SwitchScene("Game", false);
         }
 
-#if UNITY_EDITOR
+// AIRSHIFT_ANDROID_FULL_V03: Android sees the same two cursor positions
+// on the original note-rendering Game scene as the Editor.
+#if UNITY_EDITOR || UNITY_ANDROID
         private void OnGUI()
         {
             if (!IsAirshiftMode ||
@@ -1589,6 +1591,10 @@ namespace MajdataPlay.Scenes.Game
 
             GUI.color = previousColor;
             GUI.depth = previousDepth;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _airshiftInputController.DrawAndroidCameraOverlay();
+#endif
         }
 
         private static Texture2D? _airshiftCursorTexture;
@@ -1715,6 +1721,13 @@ namespace MajdataPlay.Scenes.Game
             GUI.Label(labelRect, handLabel, labelStyle);
 
             GUI.color = previousColor;
+        }
+#endif
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private void OnApplicationPause(bool paused)
+        {
+            _airshiftInputController?.OnAndroidApplicationPause(paused);
         }
 #endif
 
