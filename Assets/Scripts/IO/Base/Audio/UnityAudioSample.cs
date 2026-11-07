@@ -92,6 +92,10 @@ namespace MajdataPlay.IO
         }
         public UnityAudioSample(AudioClip audioClip, GameObject gameObject)
         {
+            if (audioClip == null)
+                throw new ArgumentNullException(nameof(audioClip), "Unity audio request returned no decoded AudioClip.");
+            if (gameObject == null)
+                throw new ArgumentNullException(nameof(gameObject));
             this._audioClip = audioClip;
             this._gameObject = gameObject;
             this._audioClip.LoadAudioData();
@@ -139,12 +143,22 @@ namespace MajdataPlay.IO
                 return;
             }
             _isDisposed = true;
+            // An unsuccessful constructor can still be finalized; never
+            // dereference absent Unity objects while cleaning up.
+            var source = _audioSource;
+            var clip = _audioClip;
             UniTask.Post(() =>
             {
-                _audioSource!.Stop();
-                _audioClip!.UnloadAudioData();
-                UnityEngine.Object.Destroy(_audioSource);
-                UnityEngine.Object.DestroyImmediate(_audioClip, true);
+                if (source != null)
+                {
+                    source.Stop();
+                    UnityEngine.Object.Destroy(source);
+                }
+                if (clip != null)
+                {
+                    clip.UnloadAudioData();
+                    UnityEngine.Object.DestroyImmediate(clip, true);
+                }
             });
         }
         public override async ValueTask DisposeAsync()
@@ -157,45 +171,93 @@ namespace MajdataPlay.IO
             await using (UniTask.ReturnToCurrentSynchronizationContext())
             {
                 await UniTask.SwitchToMainThread();
-                _audioSource!.Stop();
-                _audioClip!.UnloadAudioData();
-                UnityEngine.Object.Destroy(_audioSource);
-                UnityEngine.Object.DestroyImmediate(_audioClip, true);
+                if (_audioSource != null)
+                {
+                    _audioSource.Stop();
+                    UnityEngine.Object.Destroy(_audioSource);
+                }
+                if (_audioClip != null)
+                {
+                    _audioClip.UnloadAudioData();
+                    UnityEngine.Object.DestroyImmediate(_audioClip, true);
+                }
 
                 _audioClip = null;
                 _audioSource = null;
             }
         }
+        private static Uri ToAudioUri(string filePath)
+        {
+            if (!Uri.TryCreate(filePath, UriKind.Absolute, out var uri))
+                throw new ArgumentException("Unity audio requires an absolute URI: " + filePath, nameof(filePath));
+            return uri;
+        }
+
+        private static AudioClip GetDecodedClip(UnityWebRequest request, Uri uri)
+        {
+            if (request.result != UnityWebRequest.Result.Success)
+                throw new System.IO.IOException(
+                    "Unity audio request failed for '" + uri + "': " + request.result +
+                    " - " + request.error);
+
+            var clip = DownloadHandlerAudioClip.GetContent(request);
+            if (clip == null)
+                throw new System.IO.InvalidDataException(
+                    "Unity audio decoder returned no AudioClip for '" + uri +
+                    "'. Verify that the audio file is valid and encoded in a supported format.");
+            return clip;
+        }
+
         public static UnityAudioSample Create(string filePath, GameObject gameObject)
         {
-            filePath = filePath.Replace('\\', '/');
-            string encoded = System.Uri.EscapeUriString(filePath);
-            encoded = encoded.Replace("+", "%2B");
-            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(encoded, AudioType.UNKNOWN))
+            var uri = ToAudioUri(filePath);
+            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri.AbsoluteUri, AudioType.UNKNOWN))
             {
+                // Unity's string URL normalization may treat '+' as a space
+                // when a file path also contains spaces (UUM-57122).
+                // The Uri setter bypasses that string normalization.
+                if (uri.IsFile)
+                {
+                    www.uri = uri;
+                }
                 www.SetRequestHeader("User-Agent", MajEnv.HTTP_USER_AGENT);
                 www.SendWebRequest();
                 while (!www.isDone) ;
-                var myClip = DownloadHandlerAudioClip.GetContent(www);
+                var myClip = GetDecodedClip(www, uri);
                 return new UnityAudioSample(myClip, gameObject)
                 {
-                    CanSeek = filePath.StartsWith("file://"),
+                    CanSeek = uri.IsFile,
                 };
             }
         }
         public static async UniTask<UnityAudioSample> CreateAsync(string filePath, GameObject gameObject)
         {
-            filePath = filePath.Replace('\\', '/');
-            string encoded = System.Uri.EscapeUriString(filePath);
-            encoded = encoded.Replace("+", "%2B");
-            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(encoded, AudioType.UNKNOWN))
+            var uri = ToAudioUri(filePath);
+            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri.AbsoluteUri, AudioType.UNKNOWN))
             {
+                // Unity's string URL normalization may treat '+' as a space
+                // when a file path also contains spaces (UUM-57122).
+                // The Uri setter bypasses that string normalization.
+                if (uri.IsFile)
+                {
+                    www.uri = uri;
+                }
                 www.SetRequestHeader("User-Agent", MajEnv.HTTP_USER_AGENT);
-                await www.SendWebRequest();
-                var myClip = DownloadHandlerAudioClip.GetContent(www);
+                try
+                {
+                    await www.SendWebRequest();
+                }
+                catch (UnityWebRequestException exception)
+                {
+                    throw new System.IO.IOException(
+                        "Unity audio request failed for '" + uri.AbsoluteUri +
+                        "' (actual request URI: '" + www.url + "'): " +
+                        www.result + " - " + www.error, exception);
+                }
+                var myClip = GetDecodedClip(www, uri);
                 return new UnityAudioSample(myClip, gameObject)
                 {
-                    CanSeek = filePath.StartsWith("file://")
+                    CanSeek = uri.IsFile
                 };
             }
         }
